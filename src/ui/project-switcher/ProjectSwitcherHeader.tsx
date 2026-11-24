@@ -1,18 +1,34 @@
 /**
- * Responsabilidad Única: Barra superior para cambiar entre proyectos de video aislados,
- * crear nuevos proyectos independientes y exportar el paquete de datos del proyecto activo.
+ * Responsabilidad Única: Barra superior minimalista y directa para:
+ * - Cambiar o crear un proyecto aislado
+ * - Elegir formato YouTube 16:9 o Shorts 9:16
+ * - Copiar el Prompt Maestro para IA o Pegar el JSON generado
+ * - Agregar rápido una Imagen por Link de Google o un Texto
  */
 
 import React, { useState } from 'react';
-import { FolderGit2, Plus, Download, Film, Sparkles } from 'lucide-react';
+import {
+  Code2,
+  Copy,
+  ImagePlus,
+  MonitorPlay,
+  Plus,
+  Smartphone,
+  Sparkles,
+  Type
+} from 'lucide-react';
+import { YouTubeAspectPreset } from '../../dsl/dslTypes';
 import { VideoProjectBundle } from '../../projects/projectTypes';
 
 interface ProjectSwitcherHeaderProps {
   projects: VideoProjectBundle[];
   activeProject: VideoProjectBundle;
   onSelectProject: (projectId: string) => void;
-  onCreateProject: (name: string, description: string) => void;
-  onExportBundle: () => void;
+  onCreateProject: (name: string) => void;
+  onChangeAspectRatio: (aspect: YouTubeAspectPreset) => void;
+  onOpenPromptModal: (tab: 'copy-prompt' | 'paste-json') => void;
+  onQuickAddImageByUrl: () => void;
+  onQuickAddTextNode: () => void;
 }
 
 export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
@@ -20,35 +36,31 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
   activeProject,
   onSelectProject,
   onCreateProject,
-  onExportBundle
+  onChangeAspectRatio,
+  onOpenPromptModal,
+  onQuickAddImageByUrl,
+  onQuickAddTextNode
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
 
+  const aspectRatio: YouTubeAspectPreset =
+    activeProject.scene.aspectRatio === '9:16' ? '9:16' : '16:9';
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    onCreateProject(newName.trim(), 'Proyecto aislado generado desde el editor');
+    onCreateProject(newName.trim());
     setNewName('');
     setIsCreating(false);
   };
 
   return (
     <header className="editor-header">
-      <div className="brand-block">
-        <div className="brand-logo">
-          <Sparkles size={18} />
-        </div>
-        <div>
-          <h1 className="brand-title">InfiniteCanvas AI Studio</h1>
-          <span className="brand-subtitle">Motor 2.5D • Lenguaje DSL Declarativo</span>
-        </div>
-      </div>
-
-      <div className="project-selector-bar">
-        <div className="isolated-badge" title="Carpeta aislada del proyecto activo">
-          <FolderGit2 size={14} />
-          <code>{activeProject.directoryPath}</code>
+      {/* Izquierda: Selector de Proyecto Aislado */}
+      <div className="header-group">
+        <div className="brand-logo" title={`Carpeta aislada: ${activeProject.directoryPath}`}>
+          <Sparkles size={16} />
         </div>
 
         <select
@@ -58,43 +70,76 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         >
           {projects.map((p) => (
             <option key={p.manifest.id} value={p.manifest.id}>
-              {p.manifest.name} ({p.manifest.resolution.width}x{p.manifest.resolution.height} • {p.manifest.fps}fps)
+              📁 {p.manifest.name}
             </option>
           ))}
         </select>
 
         {!isCreating ? (
-          <button className="btn-secondary" onClick={() => setIsCreating(true)}>
+          <button className="btn-secondary" onClick={() => setIsCreating(true)} title="Crear nuevo proyecto de video separado">
             <Plus size={14} />
-            Nuevo Proyecto Aislado
+            Nuevo Video
           </button>
         ) : (
           <form onSubmit={handleCreateSubmit} className="inline-create-form">
             <input
               type="text"
-              placeholder="Nombre del video..."
+              placeholder="Nombre del proyecto..."
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               autoFocus
             />
-            <button type="submit" className="btn-primary">
-              Crear
-            </button>
-            <button type="button" className="btn-ghost" onClick={() => setIsCreating(false)}>
-              Cancelar
-            </button>
+            <button type="submit" className="btn-primary">Crear</button>
           </form>
         )}
       </div>
 
-      <div className="header-actions">
-        <div className="meta-pill">
-          <Film size={13} />
-          <span>{activeProject.scene.nodes.length} nodos</span>
-        </div>
-        <button className="btn-primary" onClick={onExportBundle} title="Exportar paquete aislado de este proyecto">
-          <Download size={14} />
-          Exportar Bundle Proyecto
+      {/* Centro: Selector de Pantalla YouTube 16:9 / Shorts 9:16 */}
+      <div className="youtube-format-pill">
+        <button
+          type="button"
+          className={`format-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+          onClick={() => onChangeAspectRatio('16:9')}
+        >
+          <MonitorPlay size={13} />
+          YouTube 16:9
+        </button>
+        <button
+          type="button"
+          className={`format-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+          onClick={() => onChangeAspectRatio('9:16')}
+        >
+          <Smartphone size={13} />
+          Shorts 9:16
+        </button>
+      </div>
+
+      {/* Derecha: Botones de acción rápida (Imagen por Link, Texto, Prompt para IA) */}
+      <div className="header-group">
+        <button type="button" className="btn-secondary" onClick={onQuickAddImageByUrl}>
+          <ImagePlus size={14} />
+          + Imagen por Link
+        </button>
+        <button type="button" className="btn-secondary" onClick={onQuickAddTextNode}>
+          <Type size={14} />
+          + Texto
+        </button>
+
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => onOpenPromptModal('copy-prompt')}
+        >
+          <Copy size={14} />
+          Copiar Prompt IA
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => onOpenPromptModal('paste-json')}
+        >
+          <Code2 size={14} />
+          Pegar JSON
         </button>
       </div>
     </header>

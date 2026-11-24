@@ -1,12 +1,13 @@
 /**
  * Responsabilidad Única: Renderizar un fotograma completo del Canvas Cuasi Infinito,
- * aplicando la transformación de la Cámara Virtual 2.5D, paralaje por profundidad Z,
- * nodos de texto ricos y el Simulador de Pantalla de YouTube (16:9 / 9:16).
+ * incluyendo imágenes cargadas por URL (Google Images), vectores SVG, textos ricos
+ * y el Simulador de Pantalla de YouTube perfectamente centrado.
  */
 
 import { DslCanvasNode, DslScene } from '../dsl/dslTypes';
 import { degToRad } from '../shared/math';
 import { CameraState } from './cameraEvaluator';
+import { getOrLoadCanvasImage } from './imageCache';
 import { EvaluatedCanvasNode } from './nodeEvaluator';
 import { drawBuiltinVectorIcon } from './svgIcons';
 import { drawRichTextNode } from './textRenderer';
@@ -39,20 +40,30 @@ export function renderInfiniteCanvasFrame(
   ctx.fillStyle = scene.background || '#090d16';
   ctx.fillRect(0, 0, width, height);
 
-  // Calcular el cuadro de YouTube (16:9 o 9:16) centrado en el viewport
+  // Calcular el cuadro de YouTube (16:9 o 9:16) perfectamente centrado en (width/2, height/2)
   const ytFrame = computeYouTubeFrameRect(width, height, youtubeOptions.aspectRatio);
 
-  // Escalar el zoom de la cámara virtual proporcionalmente al marco de YouTube para que el encuadre sea exacto
+  // Escalar el zoom de la cámara virtual proporcionalmente al marco de YouTube
   const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier * ytFrame.scaleFactor;
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
 
-  // 2. Grilla Cuasi Infinita (se adapta dinámicamente al zoom)
-  drawInfiniteGrid(ctx, width, height, effectiveCamX, effectiveCamY, effectiveZoom, scene.gridColor);
+  // 2. Grilla Cuasi Infinita centrada en el marco de YouTube
+  drawInfiniteGrid(
+    ctx,
+    width,
+    height,
+    ytFrame.centerX,
+    ytFrame.centerY,
+    effectiveCamX,
+    effectiveCamY,
+    effectiveZoom,
+    scene.gridColor
+  );
 
-  // 3. Transformación de espacio de cámara
+  // 3. Transformación de espacio de cámara centrada exactamente en el centro del marco YouTube
   ctx.save();
-  ctx.translate(width / 2, height / 2);
+  ctx.translate(ytFrame.centerX, ytFrame.centerY);
   ctx.scale(effectiveZoom, effectiveZoom);
   ctx.rotate(degToRad(-camera.rotation));
   ctx.translate(-effectiveCamX, -effectiveCamY);
@@ -66,7 +77,6 @@ export function renderInfiniteCanvasFrame(
   for (const item of sortedByDepth) {
     if (item.opacity <= 0.01 || item.scale <= 0.01) continue;
 
-    // Desplazamiento de paralaje según la profundidad Z del nodo
     const parallaxFactor = item.node.z * 0.25;
     const parallaxOffsetX = (effectiveCamX - item.x) * -parallaxFactor;
     const parallaxOffsetY = (effectiveCamY - item.y) * -parallaxFactor;
@@ -91,6 +101,8 @@ function drawInfiniteGrid(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
+  centerX: number,
+  centerY: number,
   camX: number,
   camY: number,
   zoom: number,
@@ -100,8 +112,8 @@ function drawInfiniteGrid(
   const baseStep = zoom < 0.45 ? 240 : zoom > 1.8 ? 60 : 120;
   const stepPx = baseStep * zoom;
 
-  const offsetX = (width / 2 - camX * zoom) % stepPx;
-  const offsetY = (height / 2 - camY * zoom) % stepPx;
+  const offsetX = (centerX - camX * zoom) % stepPx;
+  const offsetY = (centerY - camY * zoom) % stepPx;
 
   ctx.strokeStyle = gridColor || '#1e293b';
   ctx.lineWidth = 1;
@@ -118,9 +130,8 @@ function drawInfiniteGrid(
   }
   ctx.stroke();
 
-  // Ejes centrales (0,0) del canvas infinito
-  const originScreenX = width / 2 - camX * zoom;
-  const originScreenY = height / 2 - camY * zoom;
+  const originScreenX = centerX - camX * zoom;
+  const originScreenY = centerY - camY * zoom;
   ctx.strokeStyle = '#334155';
   ctx.globalAlpha = 0.7;
   ctx.beginPath();
@@ -173,12 +184,12 @@ function drawSingleCanvasNode(
 
   if (node.type === 'text') {
     drawRichTextNode(ctx, node, textRevealProgress, isSelected);
+  } else if (node.type === 'image') {
+    drawExternalImageNode(ctx, node, isSelected);
   } else {
-    // Sombra y resplandor (Glow) con color del nodo
     ctx.shadowColor = node.color;
     ctx.shadowBlur = isSelected ? 36 : 22;
 
-    // Contenedor redondeado translúcido estilo glassmorphism
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.strokeStyle = isSelected ? '#ffffff' : node.color;
     ctx.lineWidth = isSelected ? 3.5 : 2.2;
@@ -202,7 +213,6 @@ function drawSingleCanvasNode(
     } else {
       drawBuiltinVectorIcon(ctx, node.icon, Math.min(node.width, node.height) * 0.62, node.color);
 
-      // Etiqueta del nodo debajo del ícono
       ctx.fillStyle = '#f8fafc';
       ctx.font = '600 15px Inter, system-ui, sans-serif';
       ctx.textAlign = 'center';
@@ -210,14 +220,62 @@ function drawSingleCanvasNode(
     }
   }
 
-  // Indicador de profundidad Z y acciones activas
   if (activeActions.length > 0 || isSelected) {
     const tagText = activeActions.length > 0 ? activeActions.join(' • ') : `z:${node.z}`;
-    ctx.fillStyle = node.color;
+    ctx.fillStyle = node.color || '#38bdf8';
     ctx.font = '600 11px monospace';
     ctx.textAlign = 'center';
     ctx.fillText(tagText.toUpperCase(), 0, -halfH - 12);
   }
+
+  ctx.restore();
+}
+
+function drawExternalImageNode(
+  ctx: CanvasRenderingContext2D,
+  node: DslCanvasNode,
+  isSelected: boolean
+): void {
+  const halfW = node.width / 2;
+  const halfH = node.height / 2;
+  const cached = getOrLoadCanvasImage(node.src);
+
+  ctx.save();
+  ctx.shadowColor = node.color || '#38bdf8';
+  ctx.shadowBlur = isSelected ? 36 : 22;
+
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.strokeStyle = isSelected ? '#ffffff' : node.color || '#38bdf8';
+  ctx.lineWidth = isSelected ? 3.5 : 2.5;
+
+  roundRect(ctx, -halfW, -halfH, node.width, node.height, 20);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if (cached && cached.status === 'loaded') {
+    ctx.save();
+    roundRect(ctx, -halfW + 4, -halfH + 4, node.width - 8, node.height - 36, 16);
+    ctx.clip();
+    ctx.drawImage(cached.img, -halfW + 4, -halfH + 4, node.width - 8, node.height - 36);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 13px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const statusMsg =
+      cached?.status === 'error'
+        ? '⚠️ Link de imagen inválido (click para cambiar)'
+        : '🖼️ Cargando imagen por URL...';
+    ctx.fillText(statusMsg, 0, -10);
+  }
+
+  // Etiqueta inferior de la imagen
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = '600 13px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(node.label, 0, halfH - 14);
 
   ctx.restore();
 }
@@ -239,9 +297,6 @@ function roundRect(
   ctx.closePath();
 }
 
-/**
- * Permite detectar qué nodo del canvas infinito clickeó el usuario (incluyendo textos y SVGs).
- */
 export function hitTestCanvasNode(
   screenX: number,
   screenY: number,
@@ -257,8 +312,8 @@ export function hitTestCanvasNode(
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
 
-  const worldX = (screenX - viewportWidth / 2) / effectiveZoom + effectiveCamX;
-  const worldY = (screenY - viewportHeight / 2) / effectiveZoom + effectiveCamY;
+  const worldX = (screenX - ytFrame.centerX) / effectiveZoom + effectiveCamX;
+  const worldY = (screenY - ytFrame.centerY) / effectiveZoom + effectiveCamY;
 
   for (let i = evaluatedNodes.length - 1; i >= 0; i--) {
     const item = evaluatedNodes[i];

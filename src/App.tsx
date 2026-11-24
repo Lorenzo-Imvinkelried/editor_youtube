@@ -1,6 +1,6 @@
 /**
- * Responsabilidad Única: Orquestar los paneles del editor manteniendo el estado
- * del proyecto aislado activo, el simulador de pantalla YouTube y el reloj a 60 FPS.
+ * Responsabilidad Única: Orquestar la interfaz simplificada del editor donde el
+ * Simulador de Pantalla de YouTube sobre el Canvas Infinito es el centro absoluto.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -11,15 +11,14 @@ import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
 import {
   createIsolatedProjectBundle,
-  exportProjectBundleToJsonFile,
   loadAllIsolatedProjects,
   saveAllIsolatedProjects,
   saveSingleIsolatedProject
 } from './projects/projectRepository';
 import { VideoProjectBundle } from './projects/projectTypes';
-import { AiChatPanel } from './ui/ai-chat-panel/AiChatPanel';
+import { createId } from './shared/id';
+import { AiMasterPromptModal } from './ui/ai-prompt-modal/AiMasterPromptModal';
 import { InfiniteCanvasViewport } from './ui/canvas-viewport/InfiniteCanvasViewport';
-import { DslCodePanel } from './ui/dsl-code-panel/DslCodePanel';
 import { ProjectInspectorPanel } from './ui/inspector-panel/ProjectInspectorPanel';
 import { ProjectSwitcherHeader } from './ui/project-switcher/ProjectSwitcherHeader';
 import { TimelinePanel } from './ui/timeline-panel/TimelinePanel';
@@ -30,6 +29,7 @@ export const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [promptModalTab, setPromptModalTab] = useState<'copy-prompt' | 'paste-json' | null>(null);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.manifest.id === activeProjectId) || projects[0],
@@ -59,7 +59,6 @@ export const App: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isPlaying, activeProject]);
 
-  // Resolver posiciones relativas (rightOf, below, etc.) y evaluar el frame en el segundo `currentTime`
   const resolvedNodes = useMemo(
     () => resolveSceneLayout(activeProject.scene.nodes),
     [activeProject.scene.nodes]
@@ -92,8 +91,8 @@ export const App: React.FC = () => {
     setSelectedNodeId(null);
   };
 
-  const handleCreateProject = (name: string, description: string) => {
-    const newBundle = createIsolatedProjectBundle(name, description);
+  const handleCreateProject = (name: string) => {
+    const newBundle = createIsolatedProjectBundle(name, 'Proyecto aislado de video');
     const updatedList = [...projects, newBundle];
     setProjects(updatedList);
     saveAllIsolatedProjects(updatedList);
@@ -102,24 +101,11 @@ export const App: React.FC = () => {
     setSelectedNodeId(null);
   };
 
-  const handleSendPrompt = (promptText: string) => {
-    const now = new Date().toISOString();
+  const handleSendQuickPrompt = (promptText: string) => {
     const compiled = compileUserPromptToDsl(promptText, activeProject.scene);
-
     updateActiveProject((proj) => ({
       ...proj,
-      scene: compiled.updatedScene,
-      chatHistory: [
-        ...proj.chatHistory,
-        { id: `u-${Date.now()}`, role: 'user', timestamp: now, text: promptText },
-        {
-          id: `a-${Date.now() + 1}`,
-          role: 'assistant',
-          timestamp: now,
-          text: compiled.assistantReply,
-          appliedOperations: compiled.appliedOperations
-        }
-      ]
+      scene: compiled.updatedScene
     }));
   };
 
@@ -128,6 +114,8 @@ export const App: React.FC = () => {
       ...proj,
       scene: newScene
     }));
+    setCurrentTime(0);
+    setIsPlaying(true);
   };
 
   const handleChangeAspectRatio = (aspectRatio: YouTubeAspectPreset) => {
@@ -154,11 +142,68 @@ export const App: React.FC = () => {
     }));
   };
 
-  const handleQuickAddTextNode = () => {
-    const newId = `texto-custom-${activeProject.scene.nodes.length + 1}`;
+  const handleDeleteNode = (nodeId: string) => {
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        nodes: proj.scene.nodes.filter((n) => n.id !== nodeId),
+        timeline: proj.scene.timeline.filter((t) => t.targetId !== nodeId)
+      }
+    }));
+    setSelectedNodeId(null);
+  };
+
+  const handleQuickAddImageByUrl = () => {
+    const url = window.prompt(
+      'Pegá el link directo de la imagen (Google Images, Unsplash, PNG/JPG):',
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80'
+    );
+    if (!url || !url.trim()) return;
+
+    const newId = createId('imagen');
     const newNode: DslCanvasNode = {
       id: newId,
-      label: 'Texto: NUEVO TÍTULO',
+      label: 'Imagen por Link',
+      type: 'image',
+      src: url.trim(),
+      color: '#38bdf8',
+      x: Math.round(cameraState.x),
+      y: Math.round(cameraState.y),
+      z: 0.15,
+      width: 320,
+      height: 240,
+      initialOpacity: 1,
+      initialScale: 1
+    };
+
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        nodes: [...proj.scene.nodes, newNode],
+        timeline: [
+          ...proj.scene.timeline,
+          {
+            id: createId('pop'),
+            at: Number(currentTime.toFixed(2)),
+            duration: 0.85,
+            targetId: newId,
+            action: 'popIn',
+            easing: 'springBouncy',
+            params: { overshoot: 1.3 }
+          }
+        ]
+      }
+    }));
+    setSelectedNodeId(newId);
+  };
+
+  const handleQuickAddTextNode = () => {
+    const newId = createId('texto');
+    const newNode: DslCanvasNode = {
+      id: newId,
+      label: 'NUEVO TEXTO',
       type: 'text',
       text: 'NUEVO TÍTULO YOUTUBE',
       fontFamily: 'display',
@@ -197,7 +242,7 @@ export const App: React.FC = () => {
             duration: 0.9,
             action: 'focusOn',
             targetId: nodeId,
-            zoom: 1.4,
+            zoom: 1.35,
             rotation: 0,
             easing: 'easeInOutCubic'
           }
@@ -212,51 +257,36 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div className="editor-layout">
+    <div className="editor-layout-clean">
       <ProjectSwitcherHeader
         projects={projects}
         activeProject={activeProject}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
-        onExportBundle={() => exportProjectBundleToJsonFile(activeProject)}
+        onChangeAspectRatio={handleChangeAspectRatio}
+        onOpenPromptModal={(tab) => setPromptModalTab(tab)}
+        onQuickAddImageByUrl={handleQuickAddImageByUrl}
+        onQuickAddTextNode={handleQuickAddTextNode}
       />
 
-      <main className="editor-workspace">
-        <div className="left-sidebar">
-          <AiChatPanel
-            projectId={activeProject.manifest.id}
-            messages={activeProject.chatHistory}
-            onSendPrompt={handleSendPrompt}
-          />
-          <ProjectInspectorPanel
-            project={activeProject}
-            selectedNode={selectedNode}
-            onUpdateNode={handleUpdateNode}
-            onFocusNodeWithCamera={handleFocusNodeWithCamera}
-            onQuickAddTextNode={handleQuickAddTextNode}
-          />
-        </div>
+      <main className="stage-fullscreen">
+        <InfiniteCanvasViewport
+          projectTitle={activeProject.manifest.name}
+          currentTime={currentTime}
+          scene={activeProject.scene}
+          evaluatedNodes={evaluatedNodes}
+          camera={cameraState}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={setSelectedNodeId}
+        />
 
-        <div className="center-stage">
-          <InfiniteCanvasViewport
-            projectTitle={activeProject.manifest.name}
-            currentTime={currentTime}
-            scene={activeProject.scene}
-            evaluatedNodes={evaluatedNodes}
-            camera={cameraState}
-            selectedNodeId={selectedNodeId}
-            onSelectNode={setSelectedNodeId}
-            onChangeAspectRatio={handleChangeAspectRatio}
-          />
-        </div>
-
-        <div className="right-sidebar">
-          <DslCodePanel
-            projectId={activeProject.manifest.id}
-            scene={activeProject.scene}
-            onApplyDslScene={handleApplyDslScene}
-          />
-        </div>
+        <ProjectInspectorPanel
+          selectedNode={selectedNode}
+          onUpdateNode={handleUpdateNode}
+          onDeleteNode={handleDeleteNode}
+          onFocusNodeWithCamera={handleFocusNodeWithCamera}
+          onClose={() => setSelectedNodeId(null)}
+        />
       </main>
 
       <TimelinePanel
@@ -268,7 +298,17 @@ export const App: React.FC = () => {
           setIsPlaying(false);
           setCurrentTime(time);
         }}
+        onSendQuickPrompt={handleSendQuickPrompt}
       />
+
+      {promptModalTab && (
+        <AiMasterPromptModal
+          initialTab={promptModalTab}
+          currentScene={activeProject.scene}
+          onApplyDslScene={handleApplyDslScene}
+          onClose={() => setPromptModalTab(null)}
+        />
+      )}
     </div>
   );
 };

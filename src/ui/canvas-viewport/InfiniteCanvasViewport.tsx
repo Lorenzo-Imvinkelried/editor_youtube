@@ -1,11 +1,10 @@
 /**
- * Responsabilidad Única: Visor interactivo del Canvas Cuasi Infinito con Simulador de Pantalla de YouTube (16:9 y 9:16).
- * Permite previsualizar exactamente cómo se verá el video en el reproductor de YouTube mientras
- * la Cámara Virtual 2.5D recorre el lienzo infinito.
+ * Responsabilidad Única: Visor central del Canvas Cuasi Infinito con Simulador de Pantalla de YouTube
+ * perfectamente centrado y redimensionado automáticamente con ResizeObserver.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Compass, Eye, MonitorPlay, RotateCcw, Smartphone } from 'lucide-react';
+import { Eye, RotateCcw } from 'lucide-react';
 import { DslScene, YouTubeAspectPreset } from '../../dsl/dslTypes';
 import { CameraState } from '../../engine/cameraEvaluator';
 import {
@@ -13,6 +12,7 @@ import {
   renderInfiniteCanvasFrame,
   ViewportTransformOverride
 } from '../../engine/canvasRenderer';
+import { subscribeToImageLoads } from '../../engine/imageCache';
 import { EvaluatedCanvasNode } from '../../engine/nodeEvaluator';
 
 interface InfiniteCanvasViewportProps {
@@ -23,7 +23,6 @@ interface InfiniteCanvasViewportProps {
   camera: CameraState;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
-  onChangeAspectRatio: (aspectRatio: YouTubeAspectPreset) => void;
 }
 
 export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
@@ -33,12 +32,13 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
   evaluatedNodes,
   camera,
   selectedNodeId,
-  onSelectNode,
-  onChangeAspectRatio
+  onSelectNode
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const [viewportSize, setViewportSize] = useState({ width: 1200, height: 700 });
+  const [imageLoadTick, setImageLoadTick] = useState(0);
   const [manualOverride, setManualOverride] = useState<ViewportTransformOverride>({
     panX: 0,
     panY: 0,
@@ -51,15 +51,34 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
 
   const aspectRatio: YouTubeAspectPreset = scene.aspectRatio === '9:16' ? '9:16' : '16:9';
 
+  // Observar cambios de tamaño del contenedor para mantener el cuadro de YouTube 100% centrado
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const rect = container.getBoundingClientRect();
+      setViewportSize({ width: rect.width, height: rect.height });
+    };
+
+    updateDimensions();
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Re-renderizar cuando termine de cargar una imagen externa por link
+  useEffect(() => {
+    return subscribeToImageLoads(() => setImageLoadTick((t) => t + 1));
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas) return;
 
-    const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    canvas.width = viewportSize.width * dpr;
+    canvas.height = viewportSize.height * dpr;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -68,8 +87,8 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
     ctx.scale(dpr, dpr);
     renderInfiniteCanvasFrame(
       ctx,
-      rect.width,
-      rect.height,
+      viewportSize.width,
+      viewportSize.height,
       scene,
       evaluatedNodes,
       camera,
@@ -86,6 +105,8 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
     );
     ctx.restore();
   }, [
+    viewportSize,
+    imageLoadTick,
     scene,
     evaluatedNodes,
     camera,
@@ -116,9 +137,7 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
       aspectRatio
     );
 
-    if (hit) {
-      onSelectNode(hit.id);
-    }
+    onSelectNode(hit ? hit.id : null);
 
     setIsDragging(true);
     dragStartRef.current = {
@@ -172,72 +191,29 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
         onWheel={handleWheel}
       />
 
-      <div className="viewport-hud-top">
-        <div className="hud-pill">
-          <Camera size={13} />
-          <span>
-            Cámara: ({Math.round(camera.x)}, {Math.round(camera.y)}) • Zoom:{' '}
-            {(camera.zoom * manualOverride.zoomMultiplier).toFixed(2)}x
-          </span>
-        </div>
-
-        {camera.activeTargetId && (
-          <div className="hud-pill accent">
-            <Compass size={13} />
-            <span>Foco: {camera.activeTargetId}</span>
-          </div>
-        )}
-
-        <div className="youtube-controls-group">
-          <button
-            type="button"
-            className={`yt-toggle-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
-            onClick={() => onChangeAspectRatio('16:9')}
-            title="Pantalla YouTube Estándar 16:9 (1920x1080)"
-          >
-            <MonitorPlay size={13} />
-            YouTube 16:9
-          </button>
-          <button
-            type="button"
-            className={`yt-toggle-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
-            onClick={() => onChangeAspectRatio('9:16')}
-            title="Pantalla YouTube Shorts Vertical 9:16 (1080x1920)"
-          >
-            <Smartphone size={13} />
-            Shorts 9:16
-          </button>
-          <button
-            type="button"
-            className={`yt-toggle-btn ${showPlayerChrome ? 'active-red' : ''}`}
-            onClick={() => setShowPlayerChrome((p) => !p)}
-            title="Mostrar/ocultar barra roja y controles del reproductor de YouTube"
-          >
-            ▶ HUD YouTube
-          </button>
-          <button
-            type="button"
-            className={`yt-toggle-btn ${dimOutsideFrame ? 'active' : ''}`}
-            onClick={() => setDimOutsideFrame((p) => !p)}
-            title="Oscurecer fuera del marco de YouTube o ver todo el canvas infinito iluminado"
-          >
-            <Eye size={13} />
-            {dimOutsideFrame ? 'Máscara ON' : 'Ver Todo el Canvas'}
-          </button>
-        </div>
-
+      {/* Controles flotantes discretos abajo a la derecha sin tapar ni descentrar el cuadro */}
+      <div className="viewport-corner-controls">
+        <button
+          type="button"
+          className={`corner-pill-btn ${showPlayerChrome ? 'active' : ''}`}
+          onClick={() => setShowPlayerChrome((p) => !p)}
+        >
+          ▶ Barra YouTube
+        </button>
+        <button
+          type="button"
+          className={`corner-pill-btn ${dimOutsideFrame ? 'active' : ''}`}
+          onClick={() => setDimOutsideFrame((p) => !p)}
+        >
+          <Eye size={12} />
+          {dimOutsideFrame ? 'Máscara Recorte' : 'Ver Lienzo Completo'}
+        </button>
         {hasManualOffset && (
-          <button className="hud-reset-btn" onClick={resetFreeCamera}>
+          <button className="corner-pill-btn warning" onClick={resetFreeCamera}>
             <RotateCcw size={12} />
-            Volver a Cámara IA
+            Centrar Cámara IA
           </button>
         )}
-      </div>
-
-      <div className="viewport-hud-bottom">
-        <span>
-          El recuadro muestra exactamente lo que sale en YouTube • Arrastrá para explorar el canvas infinito
-        </span>
       </div>
     </div>
   );
