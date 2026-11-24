@@ -1,0 +1,15 @@
+[
+  {
+    "id": "msg-1",
+    "role": "user",
+    "timestamp": "2026-11-24T19:02:00.000Z",
+    "text": "Creá un cerebro IA en el centro con efecto pop-up y después llevá la cámara hacia un motor DSL a la derecha."
+  },
+  {
+    "id": "msg-2",
+    "role": "assistant",
+    "timestamp": "2026-11-24T19:02:02.000Z",
+    "text": "Agregué los nodos `cerebro-central`, `prompt-card`, `dsl-engine` (posicionado `rightOf: cerebro-central`) y `video-final`, con movimientos de cámara 2.5D y animaciones `popIn` con física `springBouncy`.",
+    "appliedOperations": ["addNode:cerebro-central", "addNode:dsl-engine", "camera:focusOn"]
+  }
+]

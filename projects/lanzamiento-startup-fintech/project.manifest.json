@@ -1,0 +1,17 @@
+{
+  "id": "lanzamiento-startup-fintech",
+  "name": "Lanzamiento App Fintech (Reel Dinámico)",
+  "description": "Proyecto aislado de demostración con viaje de cámara rápido, métricas y cohete pop-up",
+  "createdAt": "2026-11-24T19:05:00.000Z",
+  "updatedAt": "2026-11-24T19:15:00.000Z",
+  "resolution": { "width": 1920, "height": 1080 },
+  "fps": 60,
+  "durationSeconds": 8,
+  "dslVersion": "1.0.0",
+  "paths": {
+    "scene": "scene.dsl.json",
+    "chatHistory": "chat.history.json",
+    "assetsDir": "assets/",
+    "exportsDir": "exports/"
+  }
+}

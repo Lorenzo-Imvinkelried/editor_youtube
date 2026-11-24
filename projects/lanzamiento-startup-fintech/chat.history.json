@@ -1,0 +1,15 @@
+[
+  {
+    "id": "msg-fin-1",
+    "role": "user",
+    "timestamp": "2026-11-24T19:06:00.000Z",
+    "text": "Armá una escena sobre crecimiento global con un globo, un gráfico a la derecha y un cohete arriba del gráfico."
+  },
+  {
+    "id": "msg-fin-2",
+    "role": "assistant",
+    "timestamp": "2026-11-24T19:06:02.000Z",
+    "text": "Escena generada en el proyecto aislado `lanzamiento-startup-fintech` con posicionamiento relativo y recorrido de cámara en 3 etapas.",
+    "appliedOperations": ["addNode:globo-mercado", "addNode:grafico-crecimiento", "addNode:cohete-despegue"]
+  }
+]

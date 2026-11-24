@@ -1,0 +1,62 @@
+# Guía Maestro del Proyecto para Agentes de IA (`AGENTS.md`)
+
+Bienvenido al repositorio del **Editor de Videos / Animador de Imágenes en Canvas Infinito impulsado por IA**.
+Este archivo sirve como mapa mental rápido para que cualquier IA comprenda de inmediato cómo está organizado el proyecto y qué reglas debe respetar.
+
+## 1. Reglas Obligatorias (`.agents/rules/`)
+- **[Convención de Git](./.agents/rules/git-commits.md)**: Todos los commits y pushes DEBEN escribirse en **español en modo IMPERATIVO** (`Agrega`, `Refacciona`, `Corrige`, `Actualiza`, `Elimina`) e incluir obligatoriamente un **body explicando el porqué** de la decisión.
+- **[Arquitectura y SRP](./.agents/rules/architecture.md)**: Cada archivo tiene **una única responsabilidad**. Está prohibido mezclar motor de renderizado, gramática del DSL, gestión de proyectos y componentes React en un mismo archivo.
+
+## 2. Stack Tecnológico Elegido y Justificación
+- **Lenguaje**: **TypeScript (Strict Mode)** — Garantiza contratos exactos entre el lenguaje interno (DSL) que genera la IA y el motor de animación.
+- **Bundler / Entorno**: **Vite + React** — Para la interfaz de usuario del editor (paneles, línea de tiempo, chat de IA, explorador de proyectos aislados).
+- **Motor Gráfico (`src/engine/`)**: **Canvas 2D acelerado con Cámara Virtual 2.5D y Físicas Spring deterministas** (desacoplado de React). Evalúa cualquier instante `t` (en segundos) de forma pura `renderFrame(scene, t)`, lo que permite tanto previsualizar a 60 FPS como exportar video frame a frame con precisión matemática.
+- **Lenguaje Interno (`src/dsl/`)**: **JSON Declarativo Tipado (MotionCanvas-DSL)** con posicionamiento absoluto/relativo (`rightOf`, `below`, `center`), cámara virtual (`focusOn`, `moveTo`, `zoomTo`, `shake`) y primitivas de animación de alto nivel (`popIn`, `popOut`, `float`, `wiggle`, `pulse`, `orbit`, `typewriter`).
+
+## 3. Mapa de Directorios
+
+```text
+EDITOR/
+├── .agents/
+│   └── rules/
+│       ├── git-commits.md               # Regla: Español Imperativo + Body con el "porqué"
+│       └── architecture.md              # Regla: SRP y aislamiento por proyecto de video
+├── projects/                            # Contenedor raíz de proyectos de video aislados
+│   └── <project-id>/                    # Cada video tiene su carpeta 100% independiente
+│       ├── project.manifest.json        # Configuración del video (FPS, resolución, autor, fechas)
+│       ├── scene.dsl.json               # Escena del canvas infinito y línea de tiempo en DSL
+│       ├── chat.history.json            # Historial de prompts de IA exclusivo de este video
+│       ├── assets/                      # Recursos multimedia exclusivos de este proyecto
+│       │   ├── images/
+│       │   ├── svgs/
+│       │   └── audio/
+│       └── exports/                     # Videos/snapshots renderizados de este proyecto
+└── src/
+    ├── shared/                          # Utilidades puras sin estado
+    │   ├── math.ts                      # Interpolación, vectores, matrices 2.5D
+    │   └── id.ts                        # Generador de identificadores únicos
+    ├── dsl/                             # Lenguaje interno del editor (lo que lee/escribe la IA)
+    │   ├── dslTypes.ts                  # Contratos TypeScript de nodos, cámara y acciones
+    │   ├── dslValidator.ts              # Validación y sanitización del DSL generado por IA
+    │   ├── layoutResolver.ts            # Resuelve posiciones relativas (rightOf, below, etc.)
+    │   └── dslReference.ts              # Especificación del lenguaje para el System Prompt del LLM
+    ├── engine/                          # Motor determinista del Canvas Infinito (0% React)
+    │   ├── easings.ts                   # Curvas cubic-bezier y físicas de resorte (spring pop-up)
+    │   ├── cameraEvaluator.ts           # Calcula posición (x,y), zoom, rotación y parallax 2.5D
+    │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG en el segundo t
+    │   └── canvasRenderer.ts            # Dibuja la grilla infinita, nodos, sombras, glow y HUD
+    ├── projects/                        # Gestión aislada de cada proyecto de video
+    │   ├── projectTypes.ts              # Estructura de un paquete de proyecto aislado
+    │   ├── defaultProjects.ts           # Proyectos semilla autocontenidos
+    │   └── projectStore.ts              # Repositorio de proyectos (aislamiento, exportación JSON/bundle)
+    ├── ai/                              # Cerebro de IA que traduce prompts al lenguaje DSL
+    │   ├── systemPromptBuilder.ts       # Construye el contexto exacto del proyecto actual para el LLM
+    │   └── promptToDslEngine.ts         # Intérprete local + conector API LLM para editar la escena por chat
+    └── ui/                              # Interfaz profesional del editor dividida por panel
+        ├── project-switcher/            # Selector y creador de proyectos aislados
+        ├── canvas-viewport/             # Visor interactivo del canvas cuasi infinito
+        ├── ai-chat-panel/               # Chat de IA que modifica el DSL del proyecto activo
+        ├── dsl-code-panel/              # Editor en vivo del lenguaje interno (DSL)
+        ├── timeline-panel/              # Línea de tiempo multipista y controles de reproducción
+        └── inspector-panel/             # Propiedades del nodo seleccionado y carpeta de assets del proyecto
+```

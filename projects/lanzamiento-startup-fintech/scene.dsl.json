@@ -1,0 +1,141 @@
+{
+  "version": "1.0.0",
+  "duration": 8,
+  "background": "#071318",
+  "gridColor": "#133340",
+  "nodes": [
+    {
+      "id": "globo-mercado",
+      "label": "Mercado Global",
+      "type": "svg",
+      "icon": "globe",
+      "color": "#06b6d4",
+      "accentColor": "#22d3ee",
+      "x": -300,
+      "y": 0,
+      "z": -0.15,
+      "width": 230,
+      "height": 230,
+      "initialOpacity": 0,
+      "initialScale": 0
+    },
+    {
+      "id": "grafico-crecimiento",
+      "label": "Crecimiento +340%",
+      "type": "svg",
+      "icon": "chart",
+      "color": "#10b981",
+      "accentColor": "#34d399",
+      "relativeTo": { "targetId": "globo-mercado", "direction": "rightOf", "gap": 340 },
+      "x": 270,
+      "y": 0,
+      "z": 0.1,
+      "width": 240,
+      "height": 240,
+      "initialOpacity": 0,
+      "initialScale": 0
+    },
+    {
+      "id": "cohete-despegue",
+      "label": "Escala Mundial",
+      "type": "svg",
+      "icon": "rocket",
+      "color": "#f97316",
+      "accentColor": "#fb923c",
+      "relativeTo": { "targetId": "grafico-crecimiento", "direction": "above", "gap": 260 },
+      "x": 270,
+      "y": -500,
+      "z": 0.35,
+      "width": 250,
+      "height": 250,
+      "initialOpacity": 0,
+      "initialScale": 0
+    }
+  ],
+  "cameraTrack": [
+    {
+      "at": 0,
+      "duration": 1.0,
+      "action": "focusOn",
+      "targetId": "globo-mercado",
+      "zoom": 1.35,
+      "rotation": 0,
+      "easing": "easeOutCubic"
+    },
+    {
+      "at": 2.2,
+      "duration": 1.0,
+      "action": "focusOn",
+      "targetId": "grafico-crecimiento",
+      "zoom": 1.4,
+      "rotation": 4,
+      "easing": "easeInOutCubic"
+    },
+    {
+      "at": 4.5,
+      "duration": 1.1,
+      "action": "focusOn",
+      "targetId": "cohete-despegue",
+      "zoom": 1.5,
+      "rotation": -5,
+      "easing": "springBouncy"
+    },
+    {
+      "at": 6.4,
+      "duration": 1.3,
+      "action": "moveTo",
+      "x": 0,
+      "y": -180,
+      "zoom": 0.65,
+      "rotation": 0,
+      "easing": "easeInOutCubic"
+    }
+  ],
+  "timeline": [
+    {
+      "id": "fin-1",
+      "at": 0.15,
+      "duration": 0.8,
+      "targetId": "globo-mercado",
+      "action": "popIn",
+      "easing": "springBouncy",
+      "params": { "overshoot": 1.25 }
+    },
+    {
+      "id": "fin-2",
+      "at": 1.0,
+      "duration": 6.5,
+      "targetId": "globo-mercado",
+      "action": "float",
+      "easing": "linear",
+      "params": { "amplitude": 12, "speed": 2 }
+    },
+    {
+      "id": "fin-3",
+      "at": 2.4,
+      "duration": 0.8,
+      "targetId": "grafico-crecimiento",
+      "action": "popIn",
+      "easing": "springBouncy",
+      "params": { "overshoot": 1.35 }
+    },
+    {
+      "id": "fin-4",
+      "at": 4.7,
+      "duration": 0.85,
+      "targetId": "cohete-despegue",
+      "action": "popIn",
+      "easing": "springBouncy",
+      "params": { "overshoot": 1.4 }
+    },
+    {
+      "id": "fin-5",
+      "at": 5.5,
+      "duration": 1.2,
+      "targetId": "cohete-despegue",
+      "action": "wiggle",
+      "easing": "easeInOutCubic",
+      "params": { "angle": 10 }
+    }
+  ]
+}

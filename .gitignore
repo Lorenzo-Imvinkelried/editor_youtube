@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.vite/
+*.local
+projects/*/exports/*.mp4
+projects/*/exports/*.webm
