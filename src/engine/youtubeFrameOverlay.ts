@@ -11,6 +11,8 @@ export interface YouTubeOverlayOptions {
   dimOutsideFrame: boolean;
   /** Muestra la barra de reproducción roja, tiempo y guías de tercios de YouTube */
   showPlayerChrome: boolean;
+  /** Cuando es true (al exportar MP4), usa 100% del lienzo sin bordes ni etiquetas del editor */
+  isExportRender?: boolean;
   currentTime: number;
   duration: number;
   projectTitle: string;
@@ -32,11 +34,12 @@ export interface ComputedYouTubeFrameRect {
 export function computeYouTubeFrameRect(
   viewportWidth: number,
   viewportHeight: number,
-  aspectRatio: YouTubeAspectPreset
+  aspectRatio: YouTubeAspectPreset,
+  fullBleed = false
 ): ComputedYouTubeFrameRect {
   const targetRatio = aspectRatio === '9:16' ? 9 / 16 : 16 / 9;
-  const padX = 48;
-  const padY = 48;
+  const padX = fullBleed ? 0 : 48;
+  const padY = fullBleed ? 0 : 48;
 
   const availW = Math.max(240, viewportWidth - padX * 2);
   const availH = Math.max(180, viewportHeight - padY * 2);

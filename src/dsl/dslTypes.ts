@@ -130,12 +130,22 @@ export interface DslCameraKeyframe {
   easing?: EasingName;
 }
 
+export interface DslAudioTrack {
+  /** URL del audio (ObjectURL local, DataURL o link https://...mp3) */
+  src: string;
+  /** Nombre legible del archivo o pista de audio */
+  name: string;
+  /** Volumen de reproducción y exportación (0.0 a 1.0) */
+  volume: number;
+}
+
 export interface DslScene {
   version: string;
   duration: number;
   aspectRatio?: YouTubeAspectPreset;
   background: string;
   gridColor: string;
+  audioTrack?: DslAudioTrack;
   nodes: DslCanvasNode[];
   cameraTrack: DslCameraKeyframe[];
   timeline: DslTimelineAction[];

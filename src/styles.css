@@ -510,3 +510,168 @@ body {
 .text-sky {
   color: #38bdf8;
 }
+
+.text-emerald {
+  color: #10b981;
+}
+
+.btn-export-mp4 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  padding: 7px 14px;
+  background: linear-gradient(135deg, #ef4444, #d97706);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.btn-audio-active {
+  border-color: #10b981 !important;
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.14) !important;
+}
+
+.modal-compact {
+  width: min(540px, 95vw);
+  height: auto;
+}
+
+.audio-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.upload-drop-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 12px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--accent);
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.upload-drop-btn.synth-btn {
+  border-style: solid;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.audio-preview-card {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.audio-preview-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mini-audio-player {
+  width: 100%;
+  height: 34px;
+}
+
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.volume-row input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.export-modal-body {
+  gap: 16px;
+}
+
+.export-specs-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spec-pill {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.export-progress-box,
+.export-success-box {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.export-spinner-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.progress-bar-outer {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-panel-alt);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #10b981);
+  transition: width 0.1s linear;
+}
+
+.progress-subtext {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+@keyframes spinAnim {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-icon {
+  animation: spinAnim 1s linear infinite;
+}

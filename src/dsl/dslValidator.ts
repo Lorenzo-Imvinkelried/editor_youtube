@@ -31,11 +31,12 @@ export function validateAndParseDsl(rawJson: string): DslValidationResult {
     const duration = typeof parsed.duration === 'number' && parsed.duration > 0 ? parsed.duration : 10;
 
     const scene: DslScene = {
-      version: parsed.version || '1.1.0',
+      version: parsed.version || '1.2.0',
       duration,
       aspectRatio: parsed.aspectRatio === '9:16' ? '9:16' : '16:9',
       background: parsed.background || '#090d16',
       gridColor: parsed.gridColor || '#1e293b',
+      audioTrack: parsed.audioTrack,
       nodes: parsed.nodes,
       cameraTrack: parsed.cameraTrack,
       timeline: parsed.timeline

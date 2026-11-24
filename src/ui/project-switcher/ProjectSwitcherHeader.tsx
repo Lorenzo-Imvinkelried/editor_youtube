@@ -2,16 +2,18 @@
  * Responsabilidad Única: Barra superior minimalista y directa para:
  * - Cambiar o crear un proyecto aislado
  * - Elegir formato YouTube 16:9 o Shorts 9:16
- * - Copiar el Prompt Maestro para IA o Pegar el JSON generado
- * - Agregar rápido una Imagen por Link de Google o un Texto
+ * - Agregar Imagen por Link, Texto o Audio (MP3/WAV)
+ * - Copiar el Prompt Maestro para IA, Pegar el JSON generado y Exportar a MP4
  */
 
 import React, { useState } from 'react';
 import {
   Code2,
   Copy,
+  Download,
   ImagePlus,
   MonitorPlay,
+  Music,
   Plus,
   Smartphone,
   Sparkles,
@@ -29,6 +31,8 @@ interface ProjectSwitcherHeaderProps {
   onOpenPromptModal: (tab: 'copy-prompt' | 'paste-json') => void;
   onQuickAddImageByUrl: () => void;
   onQuickAddTextNode: () => void;
+  onOpenAudioModal: () => void;
+  onOpenExportMp4Modal: () => void;
 }
 
 export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
@@ -39,13 +43,17 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
   onChangeAspectRatio,
   onOpenPromptModal,
   onQuickAddImageByUrl,
-  onQuickAddTextNode
+  onQuickAddTextNode,
+  onOpenAudioModal,
+  onOpenExportMp4Modal
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
 
   const aspectRatio: YouTubeAspectPreset =
     activeProject.scene.aspectRatio === '9:16' ? '9:16' : '16:9';
+
+  const hasAudio = Boolean(activeProject.scene.audioTrack?.src);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,9 +84,13 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         </select>
 
         {!isCreating ? (
-          <button className="btn-secondary" onClick={() => setIsCreating(true)} title="Crear nuevo proyecto de video separado">
+          <button
+            className="btn-secondary"
+            onClick={() => setIsCreating(true)}
+            title="Crear nuevo proyecto de video separado"
+          >
             <Plus size={14} />
-            Nuevo Video
+            Nuevo
           </button>
         ) : (
           <form onSubmit={handleCreateSubmit} className="inline-create-form">
@@ -89,7 +101,9 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
               onChange={(e) => setNewName(e.target.value)}
               autoFocus
             />
-            <button type="submit" className="btn-primary">Crear</button>
+            <button type="submit" className="btn-primary">
+              Crear
+            </button>
           </form>
         )}
       </div>
@@ -114,24 +128,33 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         </button>
       </div>
 
-      {/* Derecha: Botones de acción rápida (Imagen por Link, Texto, Prompt para IA) */}
+      {/* Derecha: Imagen, Texto, Audio, Prompt IA y Exportar MP4 */}
       <div className="header-group">
         <button type="button" className="btn-secondary" onClick={onQuickAddImageByUrl}>
           <ImagePlus size={14} />
-          + Imagen por Link
+          + Imagen Link
         </button>
         <button type="button" className="btn-secondary" onClick={onQuickAddTextNode}>
           <Type size={14} />
           + Texto
         </button>
+        <button
+          type="button"
+          className={`btn-secondary ${hasAudio ? 'btn-audio-active' : ''}`}
+          onClick={onOpenAudioModal}
+          title={hasAudio ? `Audio activo: ${activeProject.scene.audioTrack?.name}` : 'Agregar música o locución MP3/WAV'}
+        >
+          <Music size={14} />
+          {hasAudio ? 'Audio ON' : '+ Audio'}
+        </button>
 
         <button
           type="button"
-          className="btn-primary"
+          className="btn-secondary"
           onClick={() => onOpenPromptModal('copy-prompt')}
         >
           <Copy size={14} />
-          Copiar Prompt IA
+          Prompt IA
         </button>
         <button
           type="button"
@@ -140,6 +163,16 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         >
           <Code2 size={14} />
           Pegar JSON
+        </button>
+
+        <button
+          type="button"
+          className="btn-export-mp4"
+          onClick={onOpenExportMp4Modal}
+          title="Renderizar y descargar video en formato MP4 con audio"
+        >
+          <Download size={14} />
+          Exportar MP4
         </button>
       </div>
     </header>

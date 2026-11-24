@@ -41,7 +41,12 @@ export function renderInfiniteCanvasFrame(
   ctx.fillRect(0, 0, width, height);
 
   // Calcular el cuadro de YouTube (16:9 o 9:16) perfectamente centrado en (width/2, height/2)
-  const ytFrame = computeYouTubeFrameRect(width, height, youtubeOptions.aspectRatio);
+  const ytFrame = computeYouTubeFrameRect(
+    width,
+    height,
+    youtubeOptions.aspectRatio,
+     Boolean(youtubeOptions.isExportRender)
+  );
 
   // Escalar el zoom de la cámara virtual proporcionalmente al marco de YouTube
   const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier * ytFrame.scaleFactor;
@@ -91,8 +96,10 @@ export function renderInfiniteCanvasFrame(
   }
   ctx.restore();
 
-  // 6. Simulador de Pantalla de YouTube encima del canvas infinito
-  renderYouTubeScreenOverlay(ctx, width, height, ytFrame, youtubeOptions);
+  // 6. Simulador de Pantalla de YouTube encima del canvas infinito (se omite al exportar el MP4 final)
+  if (!youtubeOptions.isExportRender) {
+    renderYouTubeScreenOverlay(ctx, width, height, ytFrame, youtubeOptions);
+  }
 
   ctx.restore();
 }

@@ -1,12 +1,19 @@
 /**
  * Responsabilidad Única: Orquestar la interfaz simplificada del editor donde el
- * Simulador de Pantalla de YouTube sobre el Canvas Infinito es el centro absoluto.
+ * Simulador de Pantalla de YouTube sobre el Canvas Infinito es el centro absoluto,
+ * sincronizando el reloj a 60 FPS con la pista de audio y el exportador MP4.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { compileUserPromptToDsl } from './ai/promptToDslEngine';
-import { DslCanvasNode, DslScene, YouTubeAspectPreset } from './dsl/dslTypes';
+import {
+  DslAudioTrack,
+  DslCanvasNode,
+  DslScene,
+  YouTubeAspectPreset
+} from './dsl/dslTypes';
 import { resolveSceneLayout } from './dsl/layoutResolver';
+import { projectAudioController } from './engine/audioController';
 import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
 import {
@@ -18,7 +25,9 @@ import {
 import { VideoProjectBundle } from './projects/projectTypes';
 import { createId } from './shared/id';
 import { AiMasterPromptModal } from './ui/ai-prompt-modal/AiMasterPromptModal';
+import { AudioManagerModal } from './ui/audio-modal/AudioManagerModal';
 import { InfiniteCanvasViewport } from './ui/canvas-viewport/InfiniteCanvasViewport';
+import { Mp4ExportModal } from './ui/export-modal/Mp4ExportModal';
 import { ProjectInspectorPanel } from './ui/inspector-panel/ProjectInspectorPanel';
 import { ProjectSwitcherHeader } from './ui/project-switcher/ProjectSwitcherHeader';
 import { TimelinePanel } from './ui/timeline-panel/TimelinePanel';
@@ -30,6 +39,8 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [promptModalTab, setPromptModalTab] = useState<'copy-prompt' | 'paste-json' | null>(null);
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState<boolean>(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.manifest.id === activeProjectId) || projects[0],
@@ -49,7 +60,11 @@ export const App: React.FC = () => {
 
       setCurrentTime((prev) => {
         const next = prev + deltaSeconds;
-        return next > activeProject.scene.duration ? 0 : next;
+        if (next > activeProject.scene.duration) {
+          projectAudioController.forceSeek(0);
+          return 0;
+        }
+        return next;
       });
 
       animationFrameId = requestAnimationFrame(tick);
@@ -58,6 +73,15 @@ export const App: React.FC = () => {
     animationFrameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrameId);
   }, [isPlaying, activeProject]);
+
+  // Sincronizar pista de audio del proyecto activo con el reloj de reproducción
+  useEffect(() => {
+    projectAudioController.syncWithTimeline(
+      activeProject.scene.audioTrack,
+      isPlaying && !isExportModalOpen,
+      currentTime
+    );
+  }, [activeProject.scene.audioTrack, isPlaying, isExportModalOpen, currentTime]);
 
   const resolvedNodes = useMemo(
     () => resolveSceneLayout(activeProject.scene.nodes),
@@ -86,12 +110,14 @@ export const App: React.FC = () => {
   };
 
   const handleSelectProject = (projectId: string) => {
+    projectAudioController.stopAndClear();
     setActiveProjectId(projectId);
     setCurrentTime(0);
     setSelectedNodeId(null);
   };
 
   const handleCreateProject = (name: string) => {
+    projectAudioController.stopAndClear();
     const newBundle = createIsolatedProjectBundle(name, 'Proyecto aislado de video');
     const updatedList = [...projects, newBundle];
     setProjects(updatedList);
@@ -116,6 +142,16 @@ export const App: React.FC = () => {
     }));
     setCurrentTime(0);
     setIsPlaying(true);
+  };
+
+  const handleSaveAudioTrack = (track: DslAudioTrack | undefined) => {
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        audioTrack: track
+      }
+    }));
   };
 
   const handleChangeAspectRatio = (aspectRatio: YouTubeAspectPreset) => {
@@ -267,6 +303,11 @@ export const App: React.FC = () => {
         onOpenPromptModal={(tab) => setPromptModalTab(tab)}
         onQuickAddImageByUrl={handleQuickAddImageByUrl}
         onQuickAddTextNode={handleQuickAddTextNode}
+        onOpenAudioModal={() => setIsAudioModalOpen(true)}
+        onOpenExportMp4Modal={() => {
+          setIsPlaying(false);
+          setIsExportModalOpen(true);
+        }}
       />
 
       <main className="stage-fullscreen">
@@ -297,6 +338,7 @@ export const App: React.FC = () => {
         onSeek={(time) => {
           setIsPlaying(false);
           setCurrentTime(time);
+          projectAudioController.forceSeek(time);
         }}
         onSendQuickPrompt={handleSendQuickPrompt}
       />
@@ -307,6 +349,24 @@ export const App: React.FC = () => {
           currentScene={activeProject.scene}
           onApplyDslScene={handleApplyDslScene}
           onClose={() => setPromptModalTab(null)}
+        />
+      )}
+
+      {isAudioModalOpen && (
+        <AudioManagerModal
+          currentTrack={activeProject.scene.audioTrack}
+          sceneDuration={activeProject.scene.duration}
+          onSaveAudioTrack={handleSaveAudioTrack}
+          onClose={() => setIsAudioModalOpen(false)}
+        />
+      )}
+
+      {isExportModalOpen && (
+        <Mp4ExportModal
+          projectId={activeProject.manifest.id}
+          projectName={activeProject.manifest.name}
+          scene={activeProject.scene}
+          onClose={() => setIsExportModalOpen(false)}
         />
       )}
     </div>
