@@ -1,6 +1,8 @@
 /**
  * Responsabilidad Única: Evaluar el estado visual de cada nodo (imagen, SVG, texto, badge)
- * en un instante exacto `t` aplicando todas las acciones del timeline (popIn, typewriter, float, wiggle, spin, etc.).
+ * en un instante exacto `t` soportando una amplia variedad de animaciones de entrada y movimiento:
+ * popIn, slideInLeft/Right/Up/Down, flipIn3D, unfoldWidth, blurFadeIn, spiralIn,
+ * typewriter, float, orbit, pendulum, neonFlicker, wiggle, pulse y spin.
  */
 
 import { DslCanvasNode, DslTimelineAction } from '../dsl/dslTypes';
@@ -12,6 +14,10 @@ export interface EvaluatedCanvasNode {
   x: number;
   y: number;
   scale: number;
+  /** Escala horizontal independiente para efectos flipIn3D y unfoldWidth */
+  scaleX: number;
+  /** Escala vertical independiente */
+  scaleY: number;
   rotation: number;
   opacity: number;
   /** Progreso de escritura de texto (0 a 1) para acción typewriter */
@@ -30,6 +36,8 @@ export function evaluateNodesAtTime(
     let x = node.x;
     let y = node.y;
     let scale = node.initialScale ?? 1;
+    let scaleX = 1;
+    let scaleY = 1;
     let rotation = node.initialRotation ?? 0;
     let opacity = node.initialOpacity ?? 1;
 
@@ -58,6 +66,62 @@ export function evaluateNodesAtTime(
           const eased = evaluateEasing(act.easing || 'springBouncy', rawProgress, overshoot);
           opacity = clamp(rawProgress * 2.5, 0, 1);
           scale = Math.max(0, eased);
+          break;
+        }
+        case 'slideInLeft': {
+          const eased = evaluateEasing(act.easing || 'easeOutCubic', rawProgress);
+          opacity = clamp(rawProgress * 2.2, 0, 1);
+          scale = 1;
+          x = node.x - (1 - eased) * 320;
+          break;
+        }
+        case 'slideInRight': {
+          const eased = evaluateEasing(act.easing || 'easeOutCubic', rawProgress);
+          opacity = clamp(rawProgress * 2.2, 0, 1);
+          scale = 1;
+          x = node.x + (1 - eased) * 320;
+          break;
+        }
+        case 'slideInUp': {
+          const eased = evaluateEasing(act.easing || 'easeOutCubic', rawProgress);
+          opacity = clamp(rawProgress * 2.2, 0, 1);
+          scale = 1;
+          y = node.y + (1 - eased) * 220;
+          break;
+        }
+        case 'slideInDown': {
+          const eased = evaluateEasing(act.easing || 'springBouncy', rawProgress, 1.18);
+          opacity = clamp(rawProgress * 2.2, 0, 1);
+          scale = 1;
+          y = node.y - (1 - eased) * 220;
+          break;
+        }
+        case 'flipIn3D': {
+          const eased = evaluateEasing(act.easing || 'springSmooth', rawProgress);
+          opacity = clamp(rawProgress * 3, 0, 1);
+          scale = 1;
+          scaleX = Math.max(0.02, eased);
+          break;
+        }
+        case 'unfoldWidth': {
+          const eased = evaluateEasing(act.easing || 'easeOutCubic', rawProgress);
+          opacity = clamp(rawProgress * 2.8, 0, 1);
+          scale = 1;
+          scaleX = Math.max(0.02, eased);
+          scaleY = clamp(0.6 + eased * 0.4, 0.6, 1);
+          break;
+        }
+        case 'blurFadeIn': {
+          const eased = evaluateEasing(act.easing || 'easeOutCubic', rawProgress);
+          opacity = eased;
+          scale = lerp(1.22, 1.0, eased);
+          break;
+        }
+        case 'spiralIn': {
+          const eased = evaluateEasing(act.easing || 'springBouncy', rawProgress, 1.2);
+          opacity = clamp(rawProgress * 2.5, 0, 1);
+          scale = Math.max(0, eased);
+          rotation = (1 - eased) * -140;
           break;
         }
         case 'typewriter': {
@@ -93,9 +157,34 @@ export function evaluateNodesAtTime(
         }
         case 'float': {
           if (elapsed <= duration) {
-            const amp = act.params?.amplitude ?? 12;
+            const amp = act.params?.amplitude ?? 10;
             const speed = act.params?.speed ?? 2;
             y += Math.sin(elapsed * speed) * amp;
+          }
+          break;
+        }
+        case 'orbit': {
+          if (elapsed <= duration) {
+            const radius = act.params?.radius ?? 14;
+            const speed = act.params?.speed ?? 1.8;
+            x += Math.cos(elapsed * speed) * radius;
+            y += Math.sin(elapsed * speed) * (radius * 0.65);
+          }
+          break;
+        }
+        case 'pendulum': {
+          if (elapsed <= duration) {
+            const angle = act.params?.angle ?? 4.5;
+            const speed = act.params?.speed ?? 2.2;
+            rotation += Math.sin(elapsed * speed) * angle;
+          }
+          break;
+        }
+        case 'neonFlicker': {
+          if (elapsed <= duration) {
+            const flicker =
+              Math.sin(elapsed * 28) * Math.cos(elapsed * 17) > 0.55 ? 0.68 : 1.0;
+            opacity = clamp(opacity * flicker, 0.2, 1);
           }
           break;
         }
@@ -109,8 +198,8 @@ export function evaluateNodesAtTime(
         }
         case 'pulse': {
           if (elapsed <= duration) {
-            const amount = act.params?.scaleAmount ?? 0.1;
-            const speed = act.params?.speed ?? 4;
+            const amount = act.params?.scaleAmount ?? 0.08;
+            const speed = act.params?.speed ?? 3.5;
             scale *= 1 + Math.sin(elapsed * speed) * amount;
           }
           break;
@@ -123,6 +212,8 @@ export function evaluateNodesAtTime(
       x,
       y,
       scale,
+      scaleX,
+      scaleY,
       rotation,
       opacity,
       textRevealProgress,

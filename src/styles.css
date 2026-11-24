@@ -789,3 +789,26 @@ body {
   font-size: 12px;
   outline: none;
 }
+
+.bg-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding-left: 8px;
+}
+
+.bg-select {
+  border: none !important;
+  background: transparent !important;
+  padding-left: 2px !important;
+}
+
+.json-actions-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

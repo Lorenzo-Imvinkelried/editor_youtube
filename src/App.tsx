@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { compileUserPromptToDsl } from './ai/promptToDslEngine';
 import {
+  BackgroundPresetStyle,
   DslAudioTrack,
   DslCanvasNode,
   DslScene,
@@ -170,6 +171,17 @@ export const App: React.FC = () => {
     }));
   };
 
+  const handleChangeBackgroundStyle = (backgroundStyle: BackgroundPresetStyle) => {
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        backgroundStyle,
+        showGrid: false
+      }
+    }));
+  };
+
   const handleUpdateNode = (updatedNode: DslCanvasNode) => {
     updateActiveProject((proj) => ({
       ...proj,
@@ -301,6 +313,7 @@ export const App: React.FC = () => {
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
         onChangeAspectRatio={handleChangeAspectRatio}
+        onChangeBackgroundStyle={handleChangeBackgroundStyle}
         onOpenPromptModal={(tab) => setPromptModalTab(tab)}
         onQuickAddImageByUrl={handleQuickAddImageByUrl}
         onQuickAddTextNode={handleQuickAddTextNode}
@@ -346,6 +359,7 @@ export const App: React.FC = () => {
 
       {promptModalTab && (
         <AiMasterPromptModal
+          projectId={activeProject.manifest.id}
           initialTab={promptModalTab}
           currentScene={activeProject.scene}
           onApplyDslScene={handleApplyDslScene}

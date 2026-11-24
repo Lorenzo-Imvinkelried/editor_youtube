@@ -33,7 +33,7 @@ export function drawRichTextNode(
 
   ctx.save();
   ctx.font = `${fontWeight} ${fontSize}px ${FONT_STACK_MAP[fontFamilyKey]}`;
-  ctx.textAlign = 'center';
+  ctx.textAlign = node.textAlign || 'center';
   ctx.textBaseline = 'middle';
 
   switch (variant) {
@@ -55,6 +55,18 @@ export function drawRichTextNode(
     }
     case 'outline-hollow': {
       drawOutlineHollowText(ctx, visibleText, node.color);
+      break;
+    }
+    case 'clean-subtitle': {
+      drawCleanBohrTitleAndSubtitle(
+        ctx,
+        visibleText,
+        node.subtitle,
+        fontSize,
+        node.color,
+        node.accentColor || '#ffffff',
+        node.textAlign || 'left'
+      );
       break;
     }
     case 'pill-badge':
@@ -226,5 +238,32 @@ function drawPillBadgeText(
 
   ctx.fillStyle = textColor;
   ctx.fillText(text, 0, 0);
+  ctx.restore();
+}
+
+/**
+ * Renderiza título blanco limpio + subtítulo/fecha en azul debajo o alineado a la izquierda
+ * (exactamente como el texto "Niels Bohr / 1885–1962" de la imagen de referencia).
+ */
+function drawCleanBohrTitleAndSubtitle(
+  ctx: CanvasRenderingContext2D,
+  mainText: string,
+  subtitle: string | undefined,
+  fontSize: number,
+  subtitleColor: string,
+  titleColor: string,
+  align: 'center' | 'left' | 'right'
+): void {
+  ctx.save();
+  ctx.textAlign = align;
+  ctx.fillStyle = titleColor;
+  ctx.font = `800 ${fontSize}px "Inter", "Segoe UI", system-ui, sans-serif`;
+  ctx.fillText(mainText, 0, subtitle ? -fontSize * 0.45 : 0);
+
+  if (subtitle) {
+    ctx.fillStyle = subtitleColor;
+    ctx.font = `600 ${Math.round(fontSize * 0.62)}px "Cascadia Code", "Inter", monospace`;
+    ctx.fillText(subtitle, 0, fontSize * 0.48);
+  }
   ctx.restore();
 }

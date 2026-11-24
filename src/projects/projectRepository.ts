@@ -9,8 +9,8 @@ import { slugifyProjectId } from '../shared/id';
 import { SEED_PROJECTS } from './defaultProjects';
 import { VideoProjectBundle } from './projectTypes';
 
-const INDEX_STORAGE_KEY = 'infinite_editor.project_index.v5';
-const PROJECT_KEY_PREFIX = 'infinite_editor.project_bundle.v5.';
+const INDEX_STORAGE_KEY = 'infinite_editor.project_index.v6';
+const PROJECT_KEY_PREFIX = 'infinite_editor.project_bundle.v6.';
 
 export function loadAllIsolatedProjects(): VideoProjectBundle[] {
   try {

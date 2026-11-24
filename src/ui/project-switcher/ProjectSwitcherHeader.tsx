@@ -1,9 +1,9 @@
 /**
- * Responsabilidad Única: Barra superior minimalista y directa para:
+ * Responsabilidad Única: Barra superior minimalista para:
  * - Cambiar o crear un proyecto aislado
+ * - Elegir el estilo de Fondo sin líneas (Azul Noche estilo Niels Bohr, Cosmos, Esmeralda, etc.)
  * - Elegir formato YouTube 16:9 o Shorts 9:16
- * - Agregar Imagen por Link, Texto o Audio (MP3/WAV)
- * - Copiar el Prompt Maestro para IA, Pegar el JSON generado y Exportar a MP4
+ * - Descargar/Editar el JSON del video, buscar Imágenes, poner Audio y Exportar a MP4
  */
 
 import React, { useState } from 'react';
@@ -14,12 +14,14 @@ import {
   ImagePlus,
   MonitorPlay,
   Music,
+  Palette,
   Plus,
   Smartphone,
   Sparkles,
   Type
 } from 'lucide-react';
-import { YouTubeAspectPreset } from '../../dsl/dslTypes';
+import { BackgroundPresetStyle, YouTubeAspectPreset } from '../../dsl/dslTypes';
+import { BACKGROUND_PRESETS } from '../../engine/backgroundRenderer';
 import { VideoProjectBundle } from '../../projects/projectTypes';
 
 interface ProjectSwitcherHeaderProps {
@@ -28,6 +30,7 @@ interface ProjectSwitcherHeaderProps {
   onSelectProject: (projectId: string) => void;
   onCreateProject: (name: string) => void;
   onChangeAspectRatio: (aspect: YouTubeAspectPreset) => void;
+  onChangeBackgroundStyle: (style: BackgroundPresetStyle) => void;
   onOpenPromptModal: (tab: 'copy-prompt' | 'paste-json') => void;
   onQuickAddImageByUrl: () => void;
   onQuickAddTextNode: () => void;
@@ -41,6 +44,7 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
   onSelectProject,
   onCreateProject,
   onChangeAspectRatio,
+  onChangeBackgroundStyle,
   onOpenPromptModal,
   onQuickAddImageByUrl,
   onQuickAddTextNode,
@@ -52,7 +56,8 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
 
   const aspectRatio: YouTubeAspectPreset =
     activeProject.scene.aspectRatio === '9:16' ? '9:16' : '16:9';
-
+  const bgStyle: BackgroundPresetStyle =
+    activeProject.scene.backgroundStyle || 'midnight-bohr';
   const hasAudio = Boolean(activeProject.scene.audioTrack?.src);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -65,7 +70,7 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
 
   return (
     <header className="editor-header">
-      {/* Izquierda: Selector de Proyecto Aislado */}
+      {/* Izquierda: Selector de Proyecto Aislado + Selector de Fondo estilo Niels Bohr */}
       <div className="header-group">
         <div className="brand-logo" title={`Carpeta aislada: ${activeProject.directoryPath}`}>
           <Sparkles size={16} />
@@ -106,6 +111,21 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
             </button>
           </form>
         )}
+
+        <div className="bg-selector-wrap" title="Cambiar fondo del video (sin líneas de grilla)">
+          <Palette size={13} className="text-sky" />
+          <select
+            className="project-select bg-select"
+            value={bgStyle}
+            onChange={(e) => onChangeBackgroundStyle(e.target.value as BackgroundPresetStyle)}
+          >
+            {BACKGROUND_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                🎨 {preset.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Centro: Selector de Pantalla YouTube 16:9 / Shorts 9:16 */}
@@ -116,7 +136,7 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
           onClick={() => onChangeAspectRatio('16:9')}
         >
           <MonitorPlay size={13} />
-          YouTube 16:9
+          16:9
         </button>
         <button
           type="button"
@@ -124,15 +144,15 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
           onClick={() => onChangeAspectRatio('9:16')}
         >
           <Smartphone size={13} />
-          Shorts 9:16
+          9:16
         </button>
       </div>
 
-      {/* Derecha: Imagen, Texto, Audio, Prompt IA y Exportar MP4 */}
+      {/* Derecha: Imagen, Texto, Audio, JSON del Video, Prompt IA y Exportar MP4 */}
       <div className="header-group">
         <button type="button" className="btn-secondary" onClick={onQuickAddImageByUrl}>
           <ImagePlus size={14} />
-          + Imagen Link
+          + Imagen
         </button>
         <button type="button" className="btn-secondary" onClick={onQuickAddTextNode}>
           <Type size={14} />
@@ -142,7 +162,6 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
           type="button"
           className={`btn-secondary ${hasAudio ? 'btn-audio-active' : ''}`}
           onClick={onOpenAudioModal}
-          title={hasAudio ? `Audio activo: ${activeProject.scene.audioTrack?.name}` : 'Agregar música o locución MP3/WAV'}
         >
           <Music size={14} />
           {hasAudio ? 'Audio ON' : '+ Audio'}
@@ -151,25 +170,25 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => onOpenPromptModal('copy-prompt')}
+          onClick={() => onOpenPromptModal('paste-json')}
+          title="Descargar, subir o editar todo el video en formato JSON"
         >
-          <Copy size={14} />
-          Prompt IA
+          <Code2 size={14} />
+          JSON del Video
         </button>
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => onOpenPromptModal('paste-json')}
+          onClick={() => onOpenPromptModal('copy-prompt')}
         >
-          <Code2 size={14} />
-          Pegar JSON
+          <Copy size={14} />
+          Prompt IA
         </button>
 
         <button
           type="button"
           className="btn-export-mp4"
           onClick={onOpenExportMp4Modal}
-          title="Renderizar y descargar video en formato MP4 con audio"
         >
           <Download size={14} />
           Exportar MP4

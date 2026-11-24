@@ -31,7 +31,8 @@ export type BuiltinSvgIcon =
   | 'camera'
   | 'code'
   | 'star'
-  | 'bolt';
+  | 'bolt'
+  | 'portrait';
 
 /** Familias tipográficas semánticas para el DSL */
 export type TextFontFamily =
@@ -48,13 +49,25 @@ export type TextShapeVariant =
   | 'neon-glow'      // Texto luminoso con resplandor neón intenso
   | 'curved-arc'     // Texto dispuesto en arco circular
   | 'outline-hollow' // Texto hueco con trazo vectorial
-  | 'pill-badge';    // Tarjeta o cápsula redondeada
+  | 'pill-badge'     // Tarjeta o cápsula redondeada
+  | 'clean-subtitle'; // Texto limpio minimalista estilo Niels Bohr (Título blanco + subtítulo color)
 
 export type YouTubeAspectPreset = '16:9' | '9:16';
+
+/** Estilos de fondo cinematográficos sin líneas de grilla */
+export type BackgroundPresetStyle =
+  | 'midnight-bohr'   // Azul noche profundo radial con partículas suaves (estilo Niels Bohr)
+  | 'deep-space'      // Violeta/azul cósmico oscuro sin líneas
+  | 'emerald-studio'  // Verde petróleo oscuro cinematográfico
+  | 'amber-vintage'   // Marrón/ámbar oscuro documental histórico
+  | 'obsidian-clean'  // Negro puro minimalista
+  | 'custom-solid';   // Color personalizado elegido por el usuario
 
 export interface DslCanvasNode {
   id: string;
   label: string;
+  /** Subtítulo opcional (ej. años "1856–1943" al costado o debajo estilo Niels Bohr) */
+  subtitle?: string;
   type: CanvasNodeType;
   /** Ruta o URL directa de imagen en internet (https://...) */
   src?: string;
@@ -70,6 +83,8 @@ export interface DslCanvasNode {
   textVariant?: TextShapeVariant;
   /** Tamaño de fuente en píxeles del espacio del canvas */
   fontSize?: number;
+  /** Alineación del texto ('center' | 'left' | 'right') */
+  textAlign?: 'center' | 'left' | 'right';
   color: string;
   accentColor?: string;
   /** Coordenadas en el canvas cuasi infinito */
@@ -89,10 +104,21 @@ export interface DslCanvasNode {
 export type NodeActionType =
   | 'popIn'
   | 'popOut'
+  | 'slideInLeft'
+  | 'slideInRight'
+  | 'slideInUp'
+  | 'slideInDown'
+  | 'flipIn3D'
+  | 'unfoldWidth'
+  | 'blurFadeIn'
+  | 'spiralIn'
   | 'moveTo'
   | 'rotateTo'
   | 'scaleTo'
   | 'float'
+  | 'orbit'
+  | 'pendulum'
+  | 'neonFlicker'
   | 'wiggle'
   | 'pulse'
   | 'spin'
@@ -115,6 +141,7 @@ export interface DslTimelineAction {
     angle?: number;
     overshoot?: number;
     scaleAmount?: number;
+    radius?: number;
   };
 }
 
@@ -145,7 +172,14 @@ export interface DslScene {
   version: string;
   duration: number;
   aspectRatio?: YouTubeAspectPreset;
+  /** Estilo de fondo sin líneas (por defecto 'midnight-bohr') */
+  backgroundStyle?: BackgroundPresetStyle;
+  /** Color central o primario de fondo */
   background: string;
+  /** Color exterior del degradado radial */
+  backgroundSecondary?: string;
+  /** Mostrar líneas de grilla (por defecto false para estética limpia estilo Niels Bohr) */
+  showGrid?: boolean;
   gridColor: string;
   audioTrack?: DslAudioTrack;
   nodes: DslCanvasNode[];

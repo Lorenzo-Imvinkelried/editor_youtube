@@ -1,204 +1,134 @@
 /**
  * Responsabilidad Única: Contener y generar el Prompt Maestro listo para copiar y pegar
- * en cualquier IA externa (ChatGPT, Claude, Gemini) o Agente para que investigue el tema,
- * busque automáticamente las imágenes de internet mediante `imageQuery` (o `src`) y arme todo el video.
+ * en cualquier IA externa (ChatGPT, Claude, Gemini) para que investigue el tema,
+ * use múltiples tipos de animaciones y layouts variados (incluyendo estilo Niels Bohr)
+ * y devuelva todo el video en formato JSON (`scene.dsl.json`).
  */
 
 export function buildMasterPromptForExternalAi(userTopic?: string): string {
   const topicText = userTopic?.trim()
     ? userTopic.trim()
-    : '[ESCRIBÍ ACÁ TU IDEA O TEMA DEL VIDEO, EJ: "La historia de Nikola Tesla vs Thomas Edison explicada en 20 segundos"]';
+    : '[ESCRIBÍ ACÁ TU IDEA O TEMA DEL VIDEO, EJ: "Historia de la Física Cuántica y Niels Bohr"]';
 
-  return `Actuá como un Agente Investigador, Director de Documentales de YouTube y Animador Experto en nuestro motor "InfiniteCanvas 2.5D".
-Tu objetivo es investigar y armar la animación completa de un video sobre el siguiente tema:
+  return `Actuá como un Agente Investigador, Director de Documentales y Animador Experto en nuestro motor "InfiniteCanvas 2.5D".
+Tu objetivo es investigar y armar la animación completa de un video en formato JSON sobre el siguiente tema:
 TEMA DEL VIDEO: "${topicText}"
 
-Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto extra fuera del JSON) que siga la gramática de nuestro lenguaje interno (MotionCanvas-DSL).
+Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto extra fuera del JSON).
 
-### ¡NUEVO! BÚSQUEDA AUTOMÁTICA DE IMÁGENES REALES DE INTERNET (\`imageQuery\`)
-Nuestro motor tiene conectado un buscador de imágenes reales de internet (Wikipedia / Wikimedia Commons + Proxy CORS).
-Por lo tanto, cuando pongas un nodo con \`"type": "image"\`:
-- Podés incluir \`"imageQuery": "término exacto de búsqueda"\` (ej: \`"imageQuery": "Nikola Tesla"\`, \`"imageQuery": "Bitcoin"\`, \`"imageQuery": "SpaceX Falcon 9"\`, \`"imageQuery": "Wall Street"\`). ¡El editor buscará y descargará automáticamente la foto real desde internet!
-- Opcionalmente también podés poner \`"src": "https://..."\` si tenés el link directo de una imagen pública. Si solo ponés \`"imageQuery"\`, dejá \`"src": ""\` y el motor lo resuelve solo desde internet.
+### 1. ESTÉTICA Y FONDOS SIN LÍNEAS (\`backgroundStyle\`)
+Usá \`"showGrid": false\` y elegí uno de estos fondos cinematográficos con degradado radial y partículas:
+- \`"midnight-bohr"\` (Azul noche profundo radial estilo documental Niels Bohr — recomendado)
+- \`"deep-space"\` (Violeta cósmico profundo)
+- \`"emerald-studio"\` (Verde esmeralda oscuro)
+- \`"amber-vintage"\` (Ámbar documental histórico)
+- \`"obsidian-clean"\` (Negro obsidiana minimalista)
 
----
+### 2. VARIEDAD DE ANIMACIONES EN \`timeline\` (¡NO USES SIEMPRE LA MISMA!)
+Alterná entre estas animaciones de entrada y movimiento continuo para que cada escena sea distinta:
+- **Entradas (\`action\`)**:
+  - \`"flipIn3D"\`: Giro de tarjeta en perspectiva 3D horizontal.
+  - \`"slideInLeft"\` / \`"slideInRight"\` / \`"slideInUp"\` / \`"slideInDown"\`: Entrada deslizante con desaceleración suave.
+  - \`"unfoldWidth"\`: Despliegue horizontal de banner/título.
+  - \`"blurFadeIn"\`: Aparición cinematográfica suave con zoom.
+  - \`"spiralIn"\`: Entrada en espiral con rotación.
+  - \`"popIn"\`: Efecto Pop-Up con rebote elástico (\`easing: "springBouncy"\`).
+  - \`"typewriter"\`: Escritura progresiva letra por letra (ideal para subtítulos narrativos).
+- **Movimientos continuos (\`action\`)**:
+  - \`"float"\` (levitación vertical), \`"orbit"\` (órbita circular suave), \`"pendulum"\` (balanceo de péndulo), \`"neonFlicker"\` (parpadeo eléctrico), \`"pulse"\` (latido de escala), \`"wiggle"\` (sacudida), \`"spin"\` (giro 360°).
 
-### ESPECIFICACIÓN EXACTA DEL JSON QUE DEBÉS GENERAR
+### 3. BÚSQUEDA AUTOMÁTICA DE IMÁGENES (\`imageQuery\` o \`src\`) Y TARJETAS ESTILO NIELS BOHR
+- En nodos \`"type": "image"\`: poné \`"imageQuery": "Nombre exacto en Wikipedia"\` (ej. \`"Niels Bohr"\`, \`"Nikola Tesla"\`, \`"Wardenclyffe Tower"\`) o una URL directa en \`"src"\`, y \`"icon": "portrait"\` (mientras carga o si no hay foto, dibuja una silueta minimalista de neón azul estilo Niels Bohr).
+- En nodos \`"type": "text"\`: podés usar \`"textVariant": "clean-subtitle"\` con \`"text": "Niels Bohr"\`, \`"subtitle": "1885–1962"\` y \`"textAlign": "left"\` ubicado a la derecha de la tarjeta para lograr el diseño exacto de documental moderno, además de \`"3d-pop"\`, \`"highlight-box"\`, \`"neon-glow"\`, \`"curved-arc"\` y \`"pill-badge"\`.
 
+### EJEMPLO DE ESTRUCTURA JSON DEL VIDEO:
 \`\`\`json
 {
-  "version": "1.3.0",
-  "duration": 14,
+  "version": "1.4.0",
+  "duration": 15,
   "aspectRatio": "16:9",
-  "background": "#090d16",
+  "backgroundStyle": "midnight-bohr",
+  "background": "#13203d",
+  "backgroundSecondary": "#050811",
+  "showGrid": false,
   "gridColor": "#1e293b",
   "nodes": [
     {
-      "id": "titulo-apertura",
-      "label": "Título 3D YouTube",
-      "type": "text",
-      "text": "EL GENIO ELÉCTRICO",
-      "fontFamily": "display",
-      "textVariant": "3d-pop",
-      "fontSize": 42,
-      "color": "#f97316",
-      "accentColor": "#ffffff",
-      "x": 0,
-      "y": -185,
-      "z": 0.2,
-      "width": 520,
-      "height": 90,
-      "initialOpacity": 0,
-      "initialScale": 0
-    },
-    {
-      "id": "foto-protagonista",
-      "label": "Nikola Tesla (1890)",
+      "id": "retrato-bohr",
+      "label": "Niels Bohr",
       "type": "image",
-      "imageQuery": "Nikola Tesla",
+      "imageQuery": "Niels Bohr",
+      "icon": "portrait",
       "color": "#38bdf8",
-      "x": 0,
-      "y": 45,
+      "x": -180,
+      "y": -30,
       "z": 0,
-      "width": 300,
-      "height": 260,
+      "width": 220,
+      "height": 275,
       "initialOpacity": 0,
       "initialScale": 0
     },
     {
-      "id": "dato-vox",
-      "label": "Dato Histórico",
+      "id": "titulo-bohr",
+      "label": "Niels Bohr 1885-1962",
       "type": "text",
-      "text": "CORRIENTE ALTERNA (AC)",
+      "text": "Niels Bohr",
+      "subtitle": "1885–1962",
       "fontFamily": "sans",
-      "textVariant": "highlight-box",
-      "fontSize": 28,
-      "color": "#facc15",
-      "accentColor": "#020617",
-      "relativeTo": { "targetId": "foto-protagonista", "direction": "rightOf", "gap": 340 },
-      "x": 640,
-      "y": 45,
+      "textVariant": "clean-subtitle",
+      "textAlign": "left",
+      "fontSize": 42,
+      "color": "#38bdf8",
+      "accentColor": "#ffffff",
+      "x": -30,
+      "y": -35,
       "z": 0.15,
-      "width": 440,
-      "height": 90,
-      "initialOpacity": 0,
-      "initialScale": 0
-    },
-    {
-      "id": "segunda-imagen",
-      "label": "Bobina de Tesla",
-      "type": "image",
-      "imageQuery": "Tesla coil",
-      "color": "#10b981",
-      "relativeTo": { "targetId": "dato-vox", "direction": "below", "gap": 180 },
-      "x": 640,
-      "y": 320,
-      "z": 0.1,
-      "width": 300,
-      "height": 240,
+      "width": 460,
+      "height": 100,
       "initialOpacity": 0,
       "initialScale": 0
     }
   ],
   "cameraTrack": [
     {
-      "at": 0.0,
+      "at": 0,
       "duration": 1.1,
       "action": "moveTo",
       "x": 0,
-      "y": -35,
+      "y": 0,
       "zoom": 1.05,
       "rotation": 0,
       "easing": "easeOutCubic"
-    },
-    {
-      "at": 3.0,
-      "duration": 1.1,
-      "action": "focusOn",
-      "targetId": "dato-vox",
-      "zoom": 1.2,
-      "rotation": -3,
-      "easing": "easeInOutCubic"
-    },
-    {
-      "at": 5.5,
-      "duration": 1.1,
-      "action": "focusOn",
-      "targetId": "segunda-imagen",
-      "zoom": 1.25,
-      "rotation": 2,
-      "easing": "easeInOutCubic"
-    },
-    {
-      "at": 8.5,
-      "duration": 1.4,
-      "action": "moveTo",
-      "x": 300,
-      "y": 80,
-      "zoom": 0.72,
-      "rotation": 0,
-      "easing": "easeInOutCubic"
     }
   ],
   "timeline": [
     {
-      "id": "anim-1",
+      "id": "a1",
       "at": 0.1,
       "duration": 0.85,
-      "targetId": "titulo-apertura",
-      "action": "popIn",
-      "easing": "springBouncy",
-      "params": { "overshoot": 1.35 }
+      "targetId": "retrato-bohr",
+      "action": "flipIn3D",
+      "easing": "springSmooth"
     },
     {
-      "id": "anim-2",
-      "at": 0.35,
-      "duration": 0.85,
-      "targetId": "foto-protagonista",
-      "action": "popIn",
-      "easing": "springBouncy",
-      "params": { "overshoot": 1.25 }
-    },
-    {
-      "id": "anim-3",
-      "at": 1.2,
-      "duration": 10.0,
-      "targetId": "foto-protagonista",
-      "action": "float",
-      "easing": "linear",
-      "params": { "amplitude": 10, "speed": 2.0 }
-    },
-    {
-      "id": "anim-4",
-      "at": 3.2,
+      "id": "a2",
+      "at": 0.3,
       "duration": 0.8,
-      "targetId": "dato-vox",
-      "action": "popIn",
-      "easing": "springBouncy",
-      "params": { "overshoot": 1.3 }
+      "targetId": "titulo-bohr",
+      "action": "slideInRight",
+      "easing": "easeOutCubic"
     },
     {
-      "id": "anim-5",
-      "at": 5.7,
-      "duration": 0.85,
-      "targetId": "segunda-imagen",
-      "action": "popIn",
-      "easing": "springBouncy",
-      "params": { "overshoot": 1.3 }
+      "id": "a3",
+      "at": 1.0,
+      "duration": 8.0,
+      "targetId": "retrato-bohr",
+      "action": "orbit",
+      "params": { "radius": 8, "speed": 1.8 }
     }
   ]
 }
 \`\`\`
 
-### REGLAS OBLIGATORIAS PARA TU RESPUESTA:
-1. **Investigá el tema y usá \`type: "image"\` con \`imageQuery\`**:
-   - Poné términos concretos y fáciles de encontrar en Wikipedia/Wikimedia Commons (nombres de personas, países, inventos, empresas, planetas, animales, tecnologías, etc., preferentemente en inglés o español claro).
-2. **Combiná con \`type: "text"\` en diversas fuentes y formas**:
-   - \`fontFamily\`: \`"display"\`, \`"sans"\`, \`"serif"\`, \`"mono"\`, \`"handwritten"\`.
-   - \`textVariant\`: \`"3d-pop"\`, \`"highlight-box"\`, \`"neon-glow"\`, \`"curved-arc"\`, \`"outline-hollow"\`, \`"pill-badge"\`.
-3. **También podés usar \`type: "svg"\`** con \`icon\`: \`"brain"\`, \`"cpu"\`, \`"rocket"\`, \`"globe"\`, \`"chart"\`, \`"sparkles"\`, \`"star"\`.
-4. **Posicionamiento sin superposiciones**:
-   - Usá \`"relativeTo": { "targetId": "id-anterior", "direction": "rightOf" | "leftOf" | "above" | "below", "gap": 320 }\` para expandir la historia por el canvas infinito.
-
-Generá entre 6 y 12 nodos bien coreografiados con movimientos de cámara dinámicos. Devolvé SOLO el JSON válido.`;
+Armá el video completo combinando distintos layouts y animaciones variadas. Devolvé SOLO el JSON válido.`;
 }

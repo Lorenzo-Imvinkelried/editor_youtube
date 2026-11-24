@@ -98,6 +98,30 @@ export function drawBuiltinVectorIcon(
       ctx.stroke();
       break;
     }
+    case 'portrait': {
+      // Silueta minimalista estilo Niels Bohr (cabeza, cuello y hombros en línea de neón azul)
+      ctx.beginPath();
+      ctx.ellipse(0, -r * 0.22, r * 0.34, r * 0.44, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Cuello y solapa en V
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.14, r * 0.18);
+      ctx.lineTo(-r * 0.14, r * 0.34);
+      ctx.lineTo(0, r * 0.58);
+      ctx.lineTo(r * 0.14, r * 0.34);
+      ctx.lineTo(r * 0.14, r * 0.18);
+      ctx.stroke();
+
+      // Hombros curvos hacia la base de la tarjeta
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.72, r * 0.92);
+      ctx.quadraticCurveTo(-r * 0.64, r * 0.38, -r * 0.14, r * 0.34);
+      ctx.moveTo(r * 0.14, r * 0.34);
+      ctx.quadraticCurveTo(r * 0.64, r * 0.38, r * 0.72, r * 0.92);
+      ctx.stroke();
+      break;
+    }
     case 'sparkles':
     case 'star':
     default: {

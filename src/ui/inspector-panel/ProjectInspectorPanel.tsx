@@ -29,6 +29,7 @@ const FONT_OPTIONS: Array<{ value: TextFontFamily; label: string }> = [
 ];
 
 const VARIANT_OPTIONS: Array<{ value: TextShapeVariant; label: string }> = [
+  { value: 'clean-subtitle', label: 'Título + Año (Estilo Niels Bohr)' },
   { value: '3d-pop', label: '3D Pop Extruido' },
   { value: 'highlight-box', label: 'Cinta Resaltada (Vox)' },
   { value: 'neon-glow', label: 'Resplandor Neón' },
