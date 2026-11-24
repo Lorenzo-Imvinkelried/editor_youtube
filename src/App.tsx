@@ -28,6 +28,7 @@ import { AiMasterPromptModal } from './ui/ai-prompt-modal/AiMasterPromptModal';
 import { AudioManagerModal } from './ui/audio-modal/AudioManagerModal';
 import { InfiniteCanvasViewport } from './ui/canvas-viewport/InfiniteCanvasViewport';
 import { Mp4ExportModal } from './ui/export-modal/Mp4ExportModal';
+import { InternetImageSearchModal } from './ui/image-search-modal/InternetImageSearchModal';
 import { ProjectInspectorPanel } from './ui/inspector-panel/ProjectInspectorPanel';
 import { ProjectSwitcherHeader } from './ui/project-switcher/ProjectSwitcherHeader';
 import { TimelinePanel } from './ui/timeline-panel/TimelinePanel';
@@ -41,6 +42,7 @@ export const App: React.FC = () => {
   const [promptModalTab, setPromptModalTab] = useState<'copy-prompt' | 'paste-json' | null>(null);
   const [isAudioModalOpen, setIsAudioModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isImageSearchModalOpen, setIsImageSearchModalOpen] = useState<boolean>(false);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.manifest.id === activeProjectId) || projects[0],
@@ -191,18 +193,17 @@ export const App: React.FC = () => {
   };
 
   const handleQuickAddImageByUrl = () => {
-    const url = window.prompt(
-      'Pegá el link directo de la imagen (Google Images, Unsplash, PNG/JPG):',
-      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80'
-    );
-    if (!url || !url.trim()) return;
+    setIsImageSearchModalOpen(true);
+  };
 
+  const handleInsertInternetImage = (imageUrl: string, label: string, query?: string) => {
     const newId = createId('imagen');
     const newNode: DslCanvasNode = {
       id: newId,
-      label: 'Imagen por Link',
+      label: label || 'Imagen Web',
       type: 'image',
-      src: url.trim(),
+      src: imageUrl,
+      imageQuery: query,
       color: '#38bdf8',
       x: Math.round(cameraState.x),
       y: Math.round(cameraState.y),
@@ -367,6 +368,13 @@ export const App: React.FC = () => {
           projectName={activeProject.manifest.name}
           scene={activeProject.scene}
           onClose={() => setIsExportModalOpen(false)}
+        />
+      )}
+
+      {isImageSearchModalOpen && (
+        <InternetImageSearchModal
+          onSelectImage={handleInsertInternetImage}
+          onClose={() => setIsImageSearchModalOpen(false)}
         />
       )}
     </div>

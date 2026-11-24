@@ -113,7 +113,87 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     };
   }
 
-  // 3. Detectar si el usuario quiere crear TEXTO con diversas formas y fuentes
+  // 3. Detectar si el usuario pide buscar/insertar una IMAGEN o FOTO de internet
+  const isImageRequest =
+    lower.includes('imagen de') ||
+    lower.includes('foto de') ||
+    lower.includes('busca imagen') ||
+    lower.includes('buscá imagen') ||
+    lower.includes('pone una foto') ||
+    lower.includes('poné una foto');
+
+  const quotedMatch = promptText.match(/"([^"]+)"|'([^']+)'/);
+  const direction = detectRelativeDirection(lower);
+  const anchorNode = nextScene.nodes[nextScene.nodes.length - 1];
+
+  if (isImageRequest) {
+    const queryMatch = promptText.match(/(?:imagen|foto)\s+de\s+([a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]+)/i);
+    const rawQuery = quotedMatch
+      ? (quotedMatch[1] || quotedMatch[2])
+      : queryMatch
+        ? queryMatch[1].replace(/\b(a la derecha|a la izquierda|arriba|abajo|con pop.*)\b/gi, '').trim()
+        : 'Artificial Intelligence';
+
+    const cleanQuery = rawQuery || 'Technology';
+    const newNodeId = `img-${slugifyProjectId(cleanQuery).slice(0, 14)}-${nextScene.nodes.length + 1}`;
+
+    const imgNode: DslCanvasNode = {
+      id: newNodeId,
+      label: cleanQuery,
+      type: 'image',
+      imageQuery: cleanQuery,
+      color: '#38bdf8',
+      x: anchorNode ? anchorNode.x + 420 : 0,
+      y: anchorNode ? anchorNode.y : 0,
+      z: 0.1,
+      width: 300,
+      height: 240,
+      relativeTo: anchorNode
+        ? {
+            targetId: anchorNode.id,
+            direction,
+            gap: 320
+          }
+        : undefined,
+      initialOpacity: 0,
+      initialScale: 0
+    };
+
+    nextScene.nodes.push(imgNode);
+    operations.push(`internetImage:${cleanQuery}`);
+
+    const eventStart = Number((getLatestSceneTimestamp(nextScene) + 0.35).toFixed(2));
+    nextScene.cameraTrack.push({
+      at: eventStart,
+      duration: 1.0,
+      action: 'focusOn',
+      targetId: newNodeId,
+      zoom: 1.2,
+      rotation: 0,
+      easing: 'easeInOutCubic'
+    });
+
+    const popStart = Number((eventStart + 0.15).toFixed(2));
+    nextScene.timeline.push({
+      id: createId('act'),
+      at: popStart,
+      duration: 0.85,
+      targetId: newNodeId,
+      action: 'popIn',
+      easing: 'springBouncy',
+      params: { overshoot: 1.3 }
+    });
+
+    nextScene.duration = Math.max(nextScene.duration, Math.ceil(popStart + 2.4));
+
+    return {
+      updatedScene: nextScene,
+      assistantReply: `Busqué en internet una imagen real para **"${cleanQuery}"** (\`imageQuery: "${cleanQuery}"\`) y la inserté en el canvas con efecto Pop-Up.`,
+      appliedOperations: operations
+    };
+  }
+
+  // 4. Detectar si el usuario quiere crear TEXTO con diversas formas y fuentes
   const isTextRequest =
     lower.includes('texto') ||
     lower.includes('titulo') ||
@@ -126,10 +206,6 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     lower.includes('curvo') ||
     lower.includes('neon') ||
     lower.includes('neón');
-
-  const quotedMatch = promptText.match(/"([^"]+)"|'([^']+)'/);
-  const direction = detectRelativeDirection(lower);
-  const anchorNode = nextScene.nodes[nextScene.nodes.length - 1];
 
   if (isTextRequest) {
     const contentText = quotedMatch ? (quotedMatch[1] || quotedMatch[2]) : '¡IMPACTO VISUAL IA!';

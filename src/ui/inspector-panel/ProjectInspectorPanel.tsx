@@ -55,10 +55,29 @@ export const ProjectInspectorPanel: React.FC<ProjectInspectorPanelProps> = ({
         </button>
       </div>
 
-      {/* Si es IMAGEN o el usuario quiere convertir cualquier nodo en Imagen pegando un link */}
+      {/* Búsqueda automática en Internet por término (imageQuery) o Link directo (src) */}
       <div className="inspector-col">
         <label>
-          <Link2 size={12} /> Link de Imagen (Google Images / URL directa)
+          🔍 Buscar Imagen en Internet Automáticamente (imageQuery)
+        </label>
+        <input
+          type="text"
+          placeholder="Ej: Albert Einstein, Bitcoin, SpaceX..."
+          value={selectedNode.imageQuery || ''}
+          onChange={(e) =>
+            onUpdateNode({
+              ...selectedNode,
+              type: e.target.value.trim() ? 'image' : selectedNode.type,
+              imageQuery: e.target.value,
+              src: e.target.value.trim() ? '' : selectedNode.src
+            })
+          }
+        />
+      </div>
+
+      <div className="inspector-col">
+        <label>
+          <Link2 size={12} /> O Link Directo de Imagen (https://...)
         </label>
         <input
           type="url"

@@ -56,8 +56,10 @@ export interface DslCanvasNode {
   id: string;
   label: string;
   type: CanvasNodeType;
-  /** Ruta dentro de projects/<id>/assets/ o URL de imagen */
+  /** Ruta o URL directa de imagen en internet (https://...) */
   src?: string;
+  /** Término de búsqueda para que el motor descargue automáticamente una imagen real de internet */
+  imageQuery?: string;
   /** Ícono vectorial integrado cuando type === 'svg' */
   icon?: BuiltinSvgIcon;
   /** Contenido textual cuando type === 'text' o 'badge' */

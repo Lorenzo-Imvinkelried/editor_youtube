@@ -247,7 +247,7 @@ function drawExternalImageNode(
 ): void {
   const halfW = node.width / 2;
   const halfH = node.height / 2;
-  const cached = getOrLoadCanvasImage(node.src);
+  const cached = getOrLoadCanvasImage(node.src, node.imageQuery);
 
   ctx.save();
   roundRect(ctx, -halfW, -halfH, node.width, node.height, 20);

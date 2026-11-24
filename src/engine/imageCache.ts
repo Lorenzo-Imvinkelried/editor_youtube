@@ -1,14 +1,22 @@
 /**
  * Responsabilidad Única: Gestionar la carga asíncrona y caché en memoria de imágenes externas
- * (links de Google Images, Unsplash, PNGs transparentes, etc.) para dibujarlas a 60 FPS en el Canvas 2D.
+ * (ya sea por link directo `src` o buscando automáticamente en internet mediante `imageQuery`),
+ * asegurando compatibilidad CORS (`crossOrigin = "anonymous"`) para que la exportación a MP4 nunca falle.
  */
 
-interface CachedImageEntry {
+import {
+  buildCorsSafeImageUrl,
+  resolveBestInternetImageForQuery
+} from './internetImageSearch';
+
+export interface CachedImageEntry {
   img: HTMLImageElement;
   status: 'loading' | 'loaded' | 'error';
+  resolvedUrl?: string;
 }
 
 const imageCache = new Map<string, CachedImageEntry>();
+const pendingQueries = new Set<string>();
 const listeners = new Set<() => void>();
 
 export function subscribeToImageLoads(callback: () => void): () => void {
@@ -22,10 +30,58 @@ function notifyImageLoaded(): void {
   }
 }
 
-export function getOrLoadCanvasImage(url: string | undefined): CachedImageEntry | null {
-  if (!url || !url.trim()) return null;
-  const cleanUrl = url.trim();
+export function getOrLoadCanvasImage(
+  src: string | undefined,
+  imageQuery?: string
+): CachedImageEntry | null {
+  const cleanSrc = src?.trim();
+  const cleanQuery = imageQuery?.trim();
 
+  if (cleanSrc) {
+    return loadImageByDirectUrl(cleanSrc);
+  }
+
+  if (cleanQuery) {
+    const queryCacheKey = `query:${cleanQuery.toLowerCase()}`;
+    const existing = imageCache.get(queryCacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    if (!pendingQueries.has(queryCacheKey)) {
+      pendingQueries.add(queryCacheKey);
+      const placeholderEntry: CachedImageEntry = {
+        img: new Image(),
+        status: 'loading'
+      };
+      imageCache.set(queryCacheKey, placeholderEntry);
+
+      resolveBestInternetImageForQuery(cleanQuery)
+        .then((foundUrl) => {
+          pendingQueries.delete(queryCacheKey);
+          if (!foundUrl) {
+            placeholderEntry.status = 'error';
+            notifyImageLoaded();
+            return;
+          }
+          const loadedEntry = loadImageByDirectUrl(foundUrl);
+          imageCache.set(queryCacheKey, loadedEntry);
+          notifyImageLoaded();
+        })
+        .catch(() => {
+          pendingQueries.delete(queryCacheKey);
+          placeholderEntry.status = 'error';
+          notifyImageLoaded();
+        });
+    }
+
+    return imageCache.get(queryCacheKey) || null;
+  }
+
+  return null;
+}
+
+function loadImageByDirectUrl(cleanUrl: string): CachedImageEntry {
   const existing = imageCache.get(cleanUrl);
   if (existing) {
     return existing;
@@ -36,10 +92,12 @@ export function getOrLoadCanvasImage(url: string | undefined): CachedImageEntry 
 
   const entry: CachedImageEntry = {
     img,
-    status: 'loading'
+    status: 'loading',
+    resolvedUrl: cleanUrl
   };
 
   imageCache.set(cleanUrl, entry);
+  let triedProxy = false;
 
   img.onload = () => {
     entry.status = 'loaded';
@@ -47,11 +105,16 @@ export function getOrLoadCanvasImage(url: string | undefined): CachedImageEntry 
   };
 
   img.onerror = () => {
-    // Reintentar sin crossOrigin si el servidor externo bloquea cabeceras CORS pero permite renderizado
-    if (img.crossOrigin) {
-      img.crossOrigin = '';
-      img.src = cleanUrl;
-      return;
+    // Si el servidor externo bloquea CORS, reintentar vía proxy CORS (wsrv.nl) manteniendo crossOrigin='anonymous'
+    // para que el Canvas 2D pueda exportarse a MP4 sin error de "Tainted Canvas".
+    if (!triedProxy) {
+      triedProxy = true;
+      const proxiedUrl = buildCorsSafeImageUrl(cleanUrl);
+      if (proxiedUrl !== cleanUrl) {
+        img.crossOrigin = 'anonymous';
+        img.src = proxiedUrl;
+        return;
+      }
     }
     entry.status = 'error';
     notifyImageLoaded();

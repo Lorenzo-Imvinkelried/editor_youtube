@@ -1,24 +1,25 @@
 /**
  * Responsabilidad Única: Contener y generar el Prompt Maestro listo para copiar y pegar
- * en cualquier IA externa (ChatGPT, Claude, Gemini) para que devuelva un video completo
- * o una escena en el lenguaje interno (DSL) del editor, soportando links de imágenes de Google.
+ * en cualquier IA externa (ChatGPT, Claude, Gemini) o Agente para que investigue el tema,
+ * busque automáticamente las imágenes de internet mediante `imageQuery` (o `src`) y arme todo el video.
  */
 
 export function buildMasterPromptForExternalAi(userTopic?: string): string {
   const topicText = userTopic?.trim()
     ? userTopic.trim()
-    : '[ESCRIBÍ ACÁ TU IDEA O TEMA DEL VIDEO, EJ: "Cómo funciona Bitcoin explicado en 15 segundos"]';
+    : '[ESCRIBÍ ACÁ TU IDEA O TEMA DEL VIDEO, EJ: "La historia de Nikola Tesla vs Thomas Edison explicada en 20 segundos"]';
 
-  return `Actuá como un Director de Motion Graphics y Animador Experto en nuestro motor "InfiniteCanvas 2.5D".
-Tu objetivo es crear la animación de un video para YouTube sobre el siguiente tema:
+  return `Actuá como un Agente Investigador, Director de Documentales de YouTube y Animador Experto en nuestro motor "InfiniteCanvas 2.5D".
+Tu objetivo es investigar y armar la animación completa de un video sobre el siguiente tema:
 TEMA DEL VIDEO: "${topicText}"
 
-Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto extra fuera del JSON) que siga exactamente la gramática de nuestro lenguaje interno (MotionCanvas-DSL).
+Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto extra fuera del JSON) que siga la gramática de nuestro lenguaje interno (MotionCanvas-DSL).
 
-### CONCEPTO DEL MOTOR (CÓMO PENSAR LA ANIMACIÓN)
-1. Tenemos un **Canvas Cuasi Infinito** donde ubicás elementos (textos en distintas formas/fuentes, imágenes por URL y vectores SVG) en coordenadas \`(x, y, z)\` o usando posicionamiento relativo (\`relativeTo\`) para que NUNCA se pisen entre sí.
-2. Una **Cámara Virtual 2.5D** (\`cameraTrack\`) viaja por ese lienzo infinito enfocando cada elemento (\`focusOn\`) con zoom e inclinación (\`rotation\`), o haciendo tomas panorámicas (\`moveTo\`).
-3. En la **Línea de Tiempo** (\`timeline\`), los elementos aparecen en el momento exacto con efecto **Pop-Up elástico** (\`popIn\` con \`springBouncy\`), máquina de escribir (\`typewriter\`), levitación (\`float\`), sacudida (\`wiggle\`), pulso (\`pulse\`) o giro (\`spin\`).
+### ¡NUEVO! BÚSQUEDA AUTOMÁTICA DE IMÁGENES REALES DE INTERNET (\`imageQuery\`)
+Nuestro motor tiene conectado un buscador de imágenes reales de internet (Wikipedia / Wikimedia Commons + Proxy CORS).
+Por lo tanto, cuando pongas un nodo con \`"type": "image"\`:
+- Podés incluir \`"imageQuery": "término exacto de búsqueda"\` (ej: \`"imageQuery": "Nikola Tesla"\`, \`"imageQuery": "Bitcoin"\`, \`"imageQuery": "SpaceX Falcon 9"\`, \`"imageQuery": "Wall Street"\`). ¡El editor buscará y descargará automáticamente la foto real desde internet!
+- Opcionalmente también podés poner \`"src": "https://..."\` si tenés el link directo de una imagen pública. Si solo ponés \`"imageQuery"\`, dejá \`"src": ""\` y el motor lo resuelve solo desde internet.
 
 ---
 
@@ -26,60 +27,75 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
 
 \`\`\`json
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "duration": 14,
   "aspectRatio": "16:9",
   "background": "#090d16",
   "gridColor": "#1e293b",
   "nodes": [
     {
-      "id": "titulo-principal",
-      "label": "Título de Apertura",
+      "id": "titulo-apertura",
+      "label": "Título 3D YouTube",
       "type": "text",
-      "text": "EL SECRETO DEL TEMA",
+      "text": "EL GENIO ELÉCTRICO",
       "fontFamily": "display",
       "textVariant": "3d-pop",
-      "fontSize": 44,
+      "fontSize": 42,
       "color": "#f97316",
       "accentColor": "#ffffff",
       "x": 0,
-      "y": -230,
-      "z": 0.3,
+      "y": -185,
+      "z": 0.2,
       "width": 520,
-      "height": 100,
+      "height": 90,
       "initialOpacity": 0,
       "initialScale": 0
     },
     {
-      "id": "imagen-central",
-      "label": "Imagen Principal (Pegar Link de Google Images)",
+      "id": "foto-protagonista",
+      "label": "Nikola Tesla (1890)",
       "type": "image",
-      "src": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
+      "imageQuery": "Nikola Tesla",
       "color": "#38bdf8",
       "x": 0,
-      "y": 40,
+      "y": 45,
       "z": 0,
-      "width": 320,
-      "height": 240,
+      "width": 300,
+      "height": 260,
       "initialOpacity": 0,
       "initialScale": 0
     },
     {
       "id": "dato-vox",
-      "label": "Dato Clave",
+      "label": "Dato Histórico",
       "type": "text",
-      "text": "+300% MÁS RÁPIDO",
+      "text": "CORRIENTE ALTERNA (AC)",
       "fontFamily": "sans",
       "textVariant": "highlight-box",
-      "fontSize": 30,
+      "fontSize": 28,
       "color": "#facc15",
       "accentColor": "#020617",
-      "relativeTo": { "targetId": "imagen-central", "direction": "rightOf", "gap": 340 },
-      "x": 660,
-      "y": 40,
-      "z": 0.2,
-      "width": 420,
+      "relativeTo": { "targetId": "foto-protagonista", "direction": "rightOf", "gap": 340 },
+      "x": 640,
+      "y": 45,
+      "z": 0.15,
+      "width": 440,
       "height": 90,
+      "initialOpacity": 0,
+      "initialScale": 0
+    },
+    {
+      "id": "segunda-imagen",
+      "label": "Bobina de Tesla",
+      "type": "image",
+      "imageQuery": "Tesla coil",
+      "color": "#10b981",
+      "relativeTo": { "targetId": "dato-vox", "direction": "below", "gap": 180 },
+      "x": 640,
+      "y": 320,
+      "z": 0.1,
+      "width": 300,
+      "height": 240,
       "initialOpacity": 0,
       "initialScale": 0
     }
@@ -87,10 +103,11 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
   "cameraTrack": [
     {
       "at": 0.0,
-      "duration": 1.0,
-      "action": "focusOn",
-      "targetId": "imagen-central",
-      "zoom": 1.15,
+      "duration": 1.1,
+      "action": "moveTo",
+      "x": 0,
+      "y": -35,
+      "zoom": 1.05,
       "rotation": 0,
       "easing": "easeOutCubic"
     },
@@ -99,17 +116,26 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
       "duration": 1.1,
       "action": "focusOn",
       "targetId": "dato-vox",
-      "zoom": 1.3,
+      "zoom": 1.2,
       "rotation": -3,
       "easing": "easeInOutCubic"
     },
     {
-      "at": 6.0,
-      "duration": 1.3,
+      "at": 5.5,
+      "duration": 1.1,
+      "action": "focusOn",
+      "targetId": "segunda-imagen",
+      "zoom": 1.25,
+      "rotation": 2,
+      "easing": "easeInOutCubic"
+    },
+    {
+      "at": 8.5,
+      "duration": 1.4,
       "action": "moveTo",
       "x": 300,
-      "y": 0,
-      "zoom": 0.65,
+      "y": 80,
+      "zoom": 0.72,
       "rotation": 0,
       "easing": "easeInOutCubic"
     }
@@ -119,16 +145,16 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
       "id": "anim-1",
       "at": 0.1,
       "duration": 0.85,
-      "targetId": "titulo-principal",
+      "targetId": "titulo-apertura",
       "action": "popIn",
       "easing": "springBouncy",
       "params": { "overshoot": 1.35 }
     },
     {
       "id": "anim-2",
-      "at": 0.3,
+      "at": 0.35,
       "duration": 0.85,
-      "targetId": "imagen-central",
+      "targetId": "foto-protagonista",
       "action": "popIn",
       "easing": "springBouncy",
       "params": { "overshoot": 1.25 }
@@ -137,10 +163,10 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
       "id": "anim-3",
       "at": 1.2,
       "duration": 10.0,
-      "targetId": "imagen-central",
+      "targetId": "foto-protagonista",
       "action": "float",
       "easing": "linear",
-      "params": { "amplitude": 12, "speed": 2.0 }
+      "params": { "amplitude": 10, "speed": 2.0 }
     },
     {
       "id": "anim-4",
@@ -150,24 +176,29 @@ Debés responder ÚNICAMENTE con un bloque de código JSON válido (sin texto ex
       "action": "popIn",
       "easing": "springBouncy",
       "params": { "overshoot": 1.3 }
+    },
+    {
+      "id": "anim-5",
+      "at": 5.7,
+      "duration": 0.85,
+      "targetId": "segunda-imagen",
+      "action": "popIn",
+      "easing": "springBouncy",
+      "params": { "overshoot": 1.3 }
     }
   ]
 }
 \`\`\`
 
 ### REGLAS OBLIGATORIAS PARA TU RESPUESTA:
-1. **Tipos de nodos (\`type\`)**:
-   - \`"image"\`: Usa la propiedad \`"src"\` con una URL pública válida (o dejá una URL de referencia y un \`"label"\` bien descriptivo como \`"Foto de satelite (cambiar link)"\` para que yo pegue un link de Google Images en 1 segundo).
-   - \`"text"\`: Combiná distintas fuentes y formas visuales para que el video sea súper atractivo:
-     - \`fontFamily\`: \`"display"\` (Impact/YouTube), \`"sans"\` (limpia), \`"serif"\` (editorial), \`"mono"\` (código), \`"handwritten"\` (manuscrita).
-     - \`textVariant\`: \`"3d-pop"\` (3D extruido), \`"highlight-box"\` (cinta resaltada estilo Vox), \`"neon-glow"\` (neón), \`"curved-arc"\` (texto en arco), \`"outline-hollow"\` (contorno hueco), \`"pill-badge"\` (cápsula).
-   - \`"svg"\`: Usa \`"icon"\` con uno de estos valores: \`"brain"\`, \`"cpu"\`, \`"rocket"\`, \`"globe"\`, \`"chart"\`, \`"sparkles"\`, \`"star"\`.
-2. **Posicionamiento sin superposiciones**:
-   - Usá \`"relativeTo": { "targetId": "id-anterior", "direction": "rightOf" | "leftOf" | "above" | "below", "gap": 320 }\` para distribuir las etapas del video por el canvas infinito.
-3. **Acciones permitidas en \`timeline\`**:
-   - \`"popIn"\`, \`"popOut"\`, \`"typewriter"\` (ideal para textos), \`"float"\`, \`"wiggle"\`, \`"pulse"\`, \`"spin"\`, \`"moveTo"\`, \`"scaleTo"\`.
-4. **Easings permitidos**:
-   - \`"springBouncy"\`, \`"springSmooth"\`, \`"easeInOutCubic"\`, \`"easeOutCubic"\`, \`"easeInCubic"\`, \`"linear"\`.
+1. **Investigá el tema y usá \`type: "image"\` con \`imageQuery\`**:
+   - Poné términos concretos y fáciles de encontrar en Wikipedia/Wikimedia Commons (nombres de personas, países, inventos, empresas, planetas, animales, tecnologías, etc., preferentemente en inglés o español claro).
+2. **Combiná con \`type: "text"\` en diversas fuentes y formas**:
+   - \`fontFamily\`: \`"display"\`, \`"sans"\`, \`"serif"\`, \`"mono"\`, \`"handwritten"\`.
+   - \`textVariant\`: \`"3d-pop"\`, \`"highlight-box"\`, \`"neon-glow"\`, \`"curved-arc"\`, \`"outline-hollow"\`, \`"pill-badge"\`.
+3. **También podés usar \`type: "svg"\`** con \`icon\`: \`"brain"\`, \`"cpu"\`, \`"rocket"\`, \`"globe"\`, \`"chart"\`, \`"sparkles"\`, \`"star"\`.
+4. **Posicionamiento sin superposiciones**:
+   - Usá \`"relativeTo": { "targetId": "id-anterior", "direction": "rightOf" | "leftOf" | "above" | "below", "gap": 320 }\` para expandir la historia por el canvas infinito.
 
-Generá entre 6 y 12 nodos bien coreografiados con movimientos de cámara dinámicos para cubrir el tema pedido. Devolvé SOLO el JSON válido.`;
+Generá entre 6 y 12 nodos bien coreografiados con movimientos de cámara dinámicos. Devolvé SOLO el JSON válido.`;
 }
