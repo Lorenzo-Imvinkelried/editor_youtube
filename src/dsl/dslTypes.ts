@@ -19,7 +19,7 @@ export interface RelativePlacement {
   gap: number;
 }
 
-export type CanvasNodeType = 'image' | 'svg' | 'badge' | 'shape';
+export type CanvasNodeType = 'image' | 'svg' | 'text' | 'badge' | 'shape';
 
 export type BuiltinSvgIcon =
   | 'brain'
@@ -33,6 +33,25 @@ export type BuiltinSvgIcon =
   | 'star'
   | 'bolt';
 
+/** Familias tipográficas semánticas para el DSL */
+export type TextFontFamily =
+  | 'display'      // Impactante / Titulares estilo YouTube (Arial Black / Montserrat / Bebas)
+  | 'sans'         // Moderna y limpia (Inter / System UI)
+  | 'serif'        // Editorial / Ensayo cinematográfico (Georgia / Playfair Display)
+  | 'mono'         // Código / Datos técnicos (Cascadia Code / Fira Code)
+  | 'handwritten'; // Apuntes manuscritos sobre el canvas (Segoe Print / Caveat / Comic Sans)
+
+/** Formas y estilos visuales para nodos de texto */
+export type TextShapeVariant =
+  | '3d-pop'         // Texto con extrusión 3D sólida y contorno grueso estilo YouTube
+  | 'highlight-box'  // Cinta resaltadora editorial estilo documental Vox
+  | 'neon-glow'      // Texto luminoso con resplandor neón intenso
+  | 'curved-arc'     // Texto dispuesto en arco circular
+  | 'outline-hollow' // Texto hueco con trazo vectorial
+  | 'pill-badge';    // Tarjeta o cápsula redondeada
+
+export type YouTubeAspectPreset = '16:9' | '9:16';
+
 export interface DslCanvasNode {
   id: string;
   label: string;
@@ -41,8 +60,14 @@ export interface DslCanvasNode {
   src?: string;
   /** Ícono vectorial integrado cuando type === 'svg' */
   icon?: BuiltinSvgIcon;
-  /** Texto visible cuando type === 'badge' o subtítulo */
+  /** Contenido textual cuando type === 'text' o 'badge' */
   text?: string;
+  /** Fuente tipográfica para nodos de texto */
+  fontFamily?: TextFontFamily;
+  /** Forma o estilo visual del texto */
+  textVariant?: TextShapeVariant;
+  /** Tamaño de fuente en píxeles del espacio del canvas */
+  fontSize?: number;
   color: string;
   accentColor?: string;
   /** Coordenadas en el canvas cuasi infinito */
@@ -68,7 +93,8 @@ export type NodeActionType =
   | 'float'
   | 'wiggle'
   | 'pulse'
-  | 'spin';
+  | 'spin'
+  | 'typewriter';
 
 export interface DslTimelineAction {
   id: string;
@@ -107,6 +133,7 @@ export interface DslCameraKeyframe {
 export interface DslScene {
   version: string;
   duration: number;
+  aspectRatio?: YouTubeAspectPreset;
   background: string;
   gridColor: string;
   nodes: DslCanvasNode[];

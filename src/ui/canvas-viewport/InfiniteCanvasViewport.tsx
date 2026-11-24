@@ -1,12 +1,12 @@
 /**
- * Responsabilidad Única: Visor interactivo del Canvas Cuasi Infinito.
- * Permite tanto seguir la Cámara Virtual definida en el DSL como explorar libremente
- * el lienzo arrastrando con el mouse y haciendo zoom con la rueda.
+ * Responsabilidad Única: Visor interactivo del Canvas Cuasi Infinito con Simulador de Pantalla de YouTube (16:9 y 9:16).
+ * Permite previsualizar exactamente cómo se verá el video en el reproductor de YouTube mientras
+ * la Cámara Virtual 2.5D recorre el lienzo infinito.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Compass, RotateCcw } from 'lucide-react';
-import { DslScene } from '../../dsl/dslTypes';
+import { Camera, Compass, Eye, MonitorPlay, RotateCcw, Smartphone } from 'lucide-react';
+import { DslScene, YouTubeAspectPreset } from '../../dsl/dslTypes';
 import { CameraState } from '../../engine/cameraEvaluator';
 import {
   hitTestCanvasNode,
@@ -16,19 +16,25 @@ import {
 import { EvaluatedCanvasNode } from '../../engine/nodeEvaluator';
 
 interface InfiniteCanvasViewportProps {
+  projectTitle: string;
+  currentTime: number;
   scene: DslScene;
   evaluatedNodes: EvaluatedCanvasNode[];
   camera: CameraState;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string | null) => void;
+  onChangeAspectRatio: (aspectRatio: YouTubeAspectPreset) => void;
 }
 
 export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
+  projectTitle,
+  currentTime,
   scene,
   evaluatedNodes,
   camera,
   selectedNodeId,
-  onSelectNode
+  onSelectNode,
+  onChangeAspectRatio
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -38,8 +44,12 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
     panY: 0,
     zoomMultiplier: 1
   });
+  const [dimOutsideFrame, setDimOutsideFrame] = useState<boolean>(true);
+  const [showPlayerChrome, setShowPlayerChrome] = useState<boolean>(true);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const aspectRatio: YouTubeAspectPreset = scene.aspectRatio === '9:16' ? '9:16' : '16:9';
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -64,10 +74,29 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
       evaluatedNodes,
       camera,
       selectedNodeId,
-      manualOverride
+      manualOverride,
+      {
+        aspectRatio,
+        dimOutsideFrame,
+        showPlayerChrome,
+        currentTime,
+        duration: scene.duration,
+        projectTitle
+      }
     );
     ctx.restore();
-  }, [scene, evaluatedNodes, camera, selectedNodeId, manualOverride]);
+  }, [
+    scene,
+    evaluatedNodes,
+    camera,
+    selectedNodeId,
+    manualOverride,
+    aspectRatio,
+    dimOutsideFrame,
+    showPlayerChrome,
+    currentTime,
+    projectTitle
+  ]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -83,7 +112,8 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
       rect.height,
       evaluatedNodes,
       camera,
-      manualOverride
+      manualOverride,
+      aspectRatio
     );
 
     if (hit) {
@@ -146,16 +176,56 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
         <div className="hud-pill">
           <Camera size={13} />
           <span>
-            Cámara Virtual: ({Math.round(camera.x)}, {Math.round(camera.y)}) • Zoom:{' '}
-            {(camera.zoom * manualOverride.zoomMultiplier).toFixed(2)}x • Tilt: {camera.rotation.toFixed(1)}°
+            Cámara: ({Math.round(camera.x)}, {Math.round(camera.y)}) • Zoom:{' '}
+            {(camera.zoom * manualOverride.zoomMultiplier).toFixed(2)}x
           </span>
         </div>
+
         {camera.activeTargetId && (
           <div className="hud-pill accent">
             <Compass size={13} />
             <span>Foco: {camera.activeTargetId}</span>
           </div>
         )}
+
+        <div className="youtube-controls-group">
+          <button
+            type="button"
+            className={`yt-toggle-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+            onClick={() => onChangeAspectRatio('16:9')}
+            title="Pantalla YouTube Estándar 16:9 (1920x1080)"
+          >
+            <MonitorPlay size={13} />
+            YouTube 16:9
+          </button>
+          <button
+            type="button"
+            className={`yt-toggle-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+            onClick={() => onChangeAspectRatio('9:16')}
+            title="Pantalla YouTube Shorts Vertical 9:16 (1080x1920)"
+          >
+            <Smartphone size={13} />
+            Shorts 9:16
+          </button>
+          <button
+            type="button"
+            className={`yt-toggle-btn ${showPlayerChrome ? 'active-red' : ''}`}
+            onClick={() => setShowPlayerChrome((p) => !p)}
+            title="Mostrar/ocultar barra roja y controles del reproductor de YouTube"
+          >
+            ▶ HUD YouTube
+          </button>
+          <button
+            type="button"
+            className={`yt-toggle-btn ${dimOutsideFrame ? 'active' : ''}`}
+            onClick={() => setDimOutsideFrame((p) => !p)}
+            title="Oscurecer fuera del marco de YouTube o ver todo el canvas infinito iluminado"
+          >
+            <Eye size={13} />
+            {dimOutsideFrame ? 'Máscara ON' : 'Ver Todo el Canvas'}
+          </button>
+        </div>
+
         {hasManualOffset && (
           <button className="hud-reset-btn" onClick={resetFreeCamera}>
             <RotateCcw size={12} />
@@ -165,7 +235,9 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
       </div>
 
       <div className="viewport-hud-bottom">
-        <span>Arrastrá para explorar el canvas infinito • Rueda para zoom • Click en un nodo para inspeccionar</span>
+        <span>
+          El recuadro muestra exactamente lo que sale en YouTube • Arrastrá para explorar el canvas infinito
+        </span>
       </div>
     </div>
   );

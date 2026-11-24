@@ -1,7 +1,7 @@
 /**
  * Responsabilidad Única: Panel de Chat de IA exclusivo del proyecto activo.
  * Permite enviar prompts en lenguaje natural que mutan el DSL (`scene.dsl.json`)
- * y guarda la conversación dentro de `chat.history.json` del proyecto actual.
+ * incluyendo textos en distintas formas/fuentes y ajustes de pantalla YouTube.
  */
 
 import React, { useState } from 'react';
@@ -15,11 +15,13 @@ interface AiChatPanelProps {
 }
 
 const QUICK_PROMPTS = [
+  'Agregá un título 3D que diga "SUSCRIBITE YA" arriba',
+  'Escribí texto manuscrito "Idea Clave" con máquina de escribir',
+  'Poné un texto curvo en arco "FUTURO IA" a la derecha',
+  'Agregá un cartel resaltado estilo Vox "DATO CLAVE" abajo',
   'Agregá un cohete a la derecha con pop-up y que gire',
-  'Poné un gráfico de métricas abajo con efecto wiggle',
-  'Agregá una estrella arriba con efecto pulso',
-  'Hacé que todos los elementos giren 360 grados',
-  'Alejar cámara para mostrar panorama de todo el canvas'
+  'Cambiar pantalla a YouTube Shorts 9:16',
+  'Cambiar a pantalla YouTube horizontal 16:9'
 ];
 
 export const AiChatPanel: React.FC<AiChatPanelProps> = ({
@@ -84,7 +86,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({
       <form className="chat-input-row" onSubmit={handleSubmit}>
         <input
           type="text"
-          placeholder="Ej: Agregá un cohete a la derecha con pop-up y llevá la cámara ahí..."
+          placeholder='Ej: Agregá un título 3D que diga "HOLA YOUTUBE" arriba...'
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />

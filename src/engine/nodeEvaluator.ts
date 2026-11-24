@@ -1,6 +1,6 @@
 /**
- * Responsabilidad Única: Evaluar el estado visual de cada nodo (imagen, SVG, badge)
- * en un instante exacto `t` aplicando todas las acciones del timeline (popIn, float, wiggle, spin, etc.).
+ * Responsabilidad Única: Evaluar el estado visual de cada nodo (imagen, SVG, texto, badge)
+ * en un instante exacto `t` aplicando todas las acciones del timeline (popIn, typewriter, float, wiggle, spin, etc.).
  */
 
 import { DslCanvasNode, DslTimelineAction } from '../dsl/dslTypes';
@@ -14,6 +14,8 @@ export interface EvaluatedCanvasNode {
   scale: number;
   rotation: number;
   opacity: number;
+  /** Progreso de escritura de texto (0 a 1) para acción typewriter */
+  textRevealProgress: number;
   activeActions: string[];
 }
 
@@ -30,8 +32,13 @@ export function evaluateNodesAtTime(
     let scale = node.initialScale ?? 1;
     let rotation = node.initialRotation ?? 0;
     let opacity = node.initialOpacity ?? 1;
-    const activeActions: string[] = [];
 
+    const hasTypewriter = sortedActions.some(
+      (a) => a.targetId === node.id && a.action === 'typewriter'
+    );
+    let textRevealProgress = hasTypewriter ? 0 : 1;
+
+    const activeActions: string[] = [];
     const nodeActions = sortedActions.filter((a) => a.targetId === node.id);
 
     for (const act of nodeActions) {
@@ -51,6 +58,12 @@ export function evaluateNodesAtTime(
           const eased = evaluateEasing(act.easing || 'springBouncy', rawProgress, overshoot);
           opacity = clamp(rawProgress * 2.5, 0, 1);
           scale = Math.max(0, eased);
+          break;
+        }
+        case 'typewriter': {
+          opacity = 1;
+          if (scale === 0) scale = 1;
+          textRevealProgress = rawProgress;
           break;
         }
         case 'popOut': {
@@ -112,6 +125,7 @@ export function evaluateNodesAtTime(
       scale,
       rotation,
       opacity,
+      textRevealProgress,
       activeActions
     };
   });

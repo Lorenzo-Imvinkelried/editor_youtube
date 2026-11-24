@@ -1,11 +1,11 @@
 /**
  * Responsabilidad Única: Orquestar los paneles del editor manteniendo el estado
- * del proyecto aislado activo y el reloj de reproducción a 60 FPS.
+ * del proyecto aislado activo, el simulador de pantalla YouTube y el reloj a 60 FPS.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { compileUserPromptToDsl } from './ai/promptToDslEngine';
-import { DslCanvasNode, DslScene } from './dsl/dslTypes';
+import { DslCanvasNode, DslScene, YouTubeAspectPreset } from './dsl/dslTypes';
 import { resolveSceneLayout } from './dsl/layoutResolver';
 import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
@@ -130,6 +130,20 @@ export const App: React.FC = () => {
     }));
   };
 
+  const handleChangeAspectRatio = (aspectRatio: YouTubeAspectPreset) => {
+    updateActiveProject((proj) => ({
+      ...proj,
+      manifest: {
+        ...proj.manifest,
+        resolution: aspectRatio === '9:16' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 }
+      },
+      scene: {
+        ...proj.scene,
+        aspectRatio
+      }
+    }));
+  };
+
   const handleUpdateNode = (updatedNode: DslCanvasNode) => {
     updateActiveProject((proj) => ({
       ...proj,
@@ -138,6 +152,37 @@ export const App: React.FC = () => {
         nodes: proj.scene.nodes.map((n) => (n.id === updatedNode.id ? updatedNode : n))
       }
     }));
+  };
+
+  const handleQuickAddTextNode = () => {
+    const newId = `texto-custom-${activeProject.scene.nodes.length + 1}`;
+    const newNode: DslCanvasNode = {
+      id: newId,
+      label: 'Texto: NUEVO TÍTULO',
+      type: 'text',
+      text: 'NUEVO TÍTULO YOUTUBE',
+      fontFamily: 'display',
+      textVariant: '3d-pop',
+      fontSize: 40,
+      color: '#f97316',
+      accentColor: '#ffffff',
+      x: Math.round(cameraState.x),
+      y: Math.round(cameraState.y),
+      z: 0.3,
+      width: 480,
+      height: 100,
+      initialOpacity: 1,
+      initialScale: 1
+    };
+
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        nodes: [...proj.scene.nodes, newNode]
+      }
+    }));
+    setSelectedNodeId(newId);
   };
 
   const handleFocusNodeWithCamera = (nodeId: string) => {
@@ -188,16 +233,20 @@ export const App: React.FC = () => {
             selectedNode={selectedNode}
             onUpdateNode={handleUpdateNode}
             onFocusNodeWithCamera={handleFocusNodeWithCamera}
+            onQuickAddTextNode={handleQuickAddTextNode}
           />
         </div>
 
         <div className="center-stage">
           <InfiniteCanvasViewport
+            projectTitle={activeProject.manifest.name}
+            currentTime={currentTime}
             scene={activeProject.scene}
             evaluatedNodes={evaluatedNodes}
             camera={cameraState}
             selectedNodeId={selectedNodeId}
             onSelectNode={setSelectedNodeId}
+            onChangeAspectRatio={handleChangeAspectRatio}
           />
         </div>
 

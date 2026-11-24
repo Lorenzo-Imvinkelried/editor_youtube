@@ -43,7 +43,9 @@ EDITOR/
     ├── engine/                          # Motor determinista del Canvas Infinito (0% React)
     │   ├── easings.ts                   # Curvas cubic-bezier y físicas de resorte (spring pop-up)
     │   ├── cameraEvaluator.ts           # Calcula posición (x,y), zoom, rotación y parallax 2.5D
-    │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG en el segundo t
+    │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG/texto en el segundo t
+    │   ├── textRenderer.ts              # Renderiza textos en múltiples fuentes y formas (3D, arco, neón, Vox)
+    │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD y zonas seguras
     │   └── canvasRenderer.ts            # Dibuja la grilla infinita, nodos, sombras, glow y HUD
     ├── projects/                        # Gestión aislada de cada proyecto de video
     │   ├── projectTypes.ts              # Estructura de un paquete de proyecto aislado

@@ -352,9 +352,83 @@ body {
   position: absolute;
   top: 12px;
   left: 12px;
+  right: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.youtube-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 22, 36, 0.88);
+  padding: 3px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+}
+
+.yt-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yt-toggle-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.yt-toggle-btn.active-red {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.btn-primary-xs {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #0284c7, #4f46e5);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inspector-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inspector-col input,
+.inspector-grid-2 select,
+.inspector-grid-2 input {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 5px 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  width: 100%;
+}
+
+.inspector-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .hud-pill {

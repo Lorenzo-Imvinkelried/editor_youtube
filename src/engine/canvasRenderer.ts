@@ -1,7 +1,7 @@
 /**
  * Responsabilidad Única: Renderizar un fotograma completo del Canvas Cuasi Infinito,
  * aplicando la transformación de la Cámara Virtual 2.5D, paralaje por profundidad Z,
- * líneas conectoras para nodos relativos y efectos de iluminación/pop-up.
+ * nodos de texto ricos y el Simulador de Pantalla de YouTube (16:9 / 9:16).
  */
 
 import { DslCanvasNode, DslScene } from '../dsl/dslTypes';
@@ -9,6 +9,12 @@ import { degToRad } from '../shared/math';
 import { CameraState } from './cameraEvaluator';
 import { EvaluatedCanvasNode } from './nodeEvaluator';
 import { drawBuiltinVectorIcon } from './svgIcons';
+import { drawRichTextNode } from './textRenderer';
+import {
+  computeYouTubeFrameRect,
+  renderYouTubeScreenOverlay,
+  YouTubeOverlayOptions
+} from './youtubeFrameOverlay';
 
 export interface ViewportTransformOverride {
   panX: number;
@@ -24,7 +30,8 @@ export function renderInfiniteCanvasFrame(
   evaluatedNodes: EvaluatedCanvasNode[],
   camera: CameraState,
   selectedNodeId: string | null,
-  manualOverride: ViewportTransformOverride
+  manualOverride: ViewportTransformOverride,
+  youtubeOptions: YouTubeOverlayOptions
 ): void {
   ctx.save();
 
@@ -32,8 +39,11 @@ export function renderInfiniteCanvasFrame(
   ctx.fillStyle = scene.background || '#090d16';
   ctx.fillRect(0, 0, width, height);
 
-  // Transformación combinada de Cámara Virtual + paneo libre del editor
-  const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier;
+  // Calcular el cuadro de YouTube (16:9 o 9:16) centrado en el viewport
+  const ytFrame = computeYouTubeFrameRect(width, height, youtubeOptions.aspectRatio);
+
+  // Escalar el zoom de la cámara virtual proporcionalmente al marco de YouTube para que el encuadre sea exacto
+  const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier * ytFrame.scaleFactor;
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
 
@@ -41,6 +51,7 @@ export function renderInfiniteCanvasFrame(
   drawInfiniteGrid(ctx, width, height, effectiveCamX, effectiveCamY, effectiveZoom, scene.gridColor);
 
   // 3. Transformación de espacio de cámara
+  ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.scale(effectiveZoom, effectiveZoom);
   ctx.rotate(degToRad(-camera.rotation));
@@ -68,6 +79,10 @@ export function renderInfiniteCanvasFrame(
       item.node.id === selectedNodeId
     );
   }
+  ctx.restore();
+
+  // 6. Simulador de Pantalla de YouTube encima del canvas infinito
+  renderYouTubeScreenOverlay(ctx, width, height, ytFrame, youtubeOptions);
 
   ctx.restore();
 }
@@ -145,7 +160,7 @@ function drawSingleCanvasNode(
   renderY: number,
   isSelected: boolean
 ): void {
-  const { node, scale, rotation, opacity, activeActions } = evaluated;
+  const { node, scale, rotation, opacity, textRevealProgress, activeActions } = evaluated;
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -156,39 +171,43 @@ function drawSingleCanvasNode(
   const halfW = node.width / 2;
   const halfH = node.height / 2;
 
-  // Sombra y resplandor (Glow) con color del nodo
-  ctx.shadowColor = node.color;
-  ctx.shadowBlur = isSelected ? 36 : 22;
-
-  // Contenedor redondeado translúcido estilo glassmorphism
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-  ctx.strokeStyle = isSelected ? '#ffffff' : node.color;
-  ctx.lineWidth = isSelected ? 3.5 : 2.2;
-
-  roundRect(ctx, -halfW, -halfH, node.width, node.height, 24);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.shadowBlur = 0;
-
-  if (node.type === 'badge') {
-    ctx.fillStyle = node.accentColor || node.color;
-    ctx.font = '600 17px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(node.text || node.label, 0, -6);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '500 12px Inter, system-ui, sans-serif';
-    ctx.fillText(node.label, 0, 22);
+  if (node.type === 'text') {
+    drawRichTextNode(ctx, node, textRevealProgress, isSelected);
   } else {
-    drawBuiltinVectorIcon(ctx, node.icon, Math.min(node.width, node.height) * 0.62, node.color);
+    // Sombra y resplandor (Glow) con color del nodo
+    ctx.shadowColor = node.color;
+    ctx.shadowBlur = isSelected ? 36 : 22;
 
-    // Etiqueta del nodo debajo del ícono
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '600 15px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(node.label, 0, halfH - 22);
+    // Contenedor redondeado translúcido estilo glassmorphism
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.strokeStyle = isSelected ? '#ffffff' : node.color;
+    ctx.lineWidth = isSelected ? 3.5 : 2.2;
+
+    roundRect(ctx, -halfW, -halfH, node.width, node.height, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+
+    if (node.type === 'badge') {
+      ctx.fillStyle = node.accentColor || node.color;
+      ctx.font = '600 17px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.text || node.label, 0, -6);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '500 12px Inter, system-ui, sans-serif';
+      ctx.fillText(node.label, 0, 22);
+    } else {
+      drawBuiltinVectorIcon(ctx, node.icon, Math.min(node.width, node.height) * 0.62, node.color);
+
+      // Etiqueta del nodo debajo del ícono
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '600 15px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(node.label, 0, halfH - 22);
+    }
   }
 
   // Indicador de profundidad Z y acciones activas
@@ -221,7 +240,7 @@ function roundRect(
 }
 
 /**
- * Permite detectar qué nodo del canvas infinito clickeó el usuario.
+ * Permite detectar qué nodo del canvas infinito clickeó el usuario (incluyendo textos y SVGs).
  */
 export function hitTestCanvasNode(
   screenX: number,
@@ -230,9 +249,11 @@ export function hitTestCanvasNode(
   viewportHeight: number,
   evaluatedNodes: EvaluatedCanvasNode[],
   camera: CameraState,
-  manualOverride: ViewportTransformOverride
+  manualOverride: ViewportTransformOverride,
+  aspectRatio: '16:9' | '9:16' = '16:9'
 ): DslCanvasNode | null {
-  const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier;
+  const ytFrame = computeYouTubeFrameRect(viewportWidth, viewportHeight, aspectRatio);
+  const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier * ytFrame.scaleFactor;
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
 

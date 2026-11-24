@@ -1,6 +1,7 @@
 /**
  * Responsabilidad Única: Compilar instrucciones en lenguaje natural (prompts del chat de IA)
- * hacia mutaciones válidas en el Lenguaje Interno (DSL) del proyecto activo.
+ * hacia mutaciones válidas en el Lenguaje Interno (DSL) del proyecto activo, incluyendo
+ * creación de textos con múltiples fuentes/formas y cambio de formato de pantalla YouTube.
  */
 
 import {
@@ -8,7 +9,9 @@ import {
   DslCanvasNode,
   DslScene,
   NodeActionType,
-  RelativeDirection
+  RelativeDirection,
+  TextFontFamily,
+  TextShapeVariant
 } from '../dsl/dslTypes';
 import { createId, slugifyProjectId } from '../shared/id';
 
@@ -32,6 +35,26 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
   const nextScene: DslScene = JSON.parse(JSON.stringify(currentScene)) as DslScene;
   const operations: string[] = [];
 
+  // 0. Detectar cambio de pantalla YouTube (Shorts 9:16 vs YouTube 16:9)
+  if (lower.includes('short') || lower.includes('9:16') || lower.includes('vertical')) {
+    nextScene.aspectRatio = '9:16';
+    operations.push('youtubeScreen:9:16');
+    return {
+      updatedScene: nextScene,
+      assistantReply: 'Cambié el encuadre del proyecto a **YouTube Shorts 9:16 (1080×1920)**.',
+      appliedOperations: operations
+    };
+  }
+  if (lower.includes('16:9') || lower.includes('horizontal') || lower.includes('youtube normal')) {
+    nextScene.aspectRatio = '16:9';
+    operations.push('youtubeScreen:16:9');
+    return {
+      updatedScene: nextScene,
+      assistantReply: 'Cambié el encuadre del proyecto a **Pantalla YouTube 16:9 (1920×1080)**.',
+      appliedOperations: operations
+    };
+  }
+
   // 1. Detectar si pide una vista panorámica general de todo el canvas infinito
   if (lower.includes('panorama') || lower.includes('mostrar todo') || lower.includes('alejar camara')) {
     const lastCamTime = getLatestSceneTimestamp(nextScene);
@@ -51,12 +74,12 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     return {
       updatedScene: nextScene,
       assistantReply:
-        'Agregué un movimiento de cámara panorámico (`zoom: 0.6`) al final del `cameraTrack` para mostrar todo el lienzo infinito.',
+        'Agregué un movimiento de cámara panorámico (`zoom: 0.6`) al final del `cameraTrack` para mostrar todo el lienzo infinito dentro de la pantalla de YouTube.',
       appliedOperations: operations
     };
   }
 
-  // 2. Detectar si quiere aplicar un efecto (giro, sacudida, pulso, flotación) a los nodos existentes
+  // 2. Detectar si quiere aplicar un efecto global a todos los nodos
   if (
     (lower.includes('todos') || lower.includes('todo')) &&
     (lower.includes('gire') || lower.includes('rotar') || lower.includes('sacud') || lower.includes('wiggle') || lower.includes('pulso'))
@@ -90,33 +113,121 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     };
   }
 
-  // 3. Crear un nuevo nodo en el canvas infinito + posicionarlo relativamente + animar cámara y pop-up
-  const matchedVisual =
-    ICON_KEYWORDS.find((item) => item.keywords.some((kw) => lower.includes(kw))) || ICON_KEYWORDS[5];
+  // 3. Detectar si el usuario quiere crear TEXTO con diversas formas y fuentes
+  const isTextRequest =
+    lower.includes('texto') ||
+    lower.includes('titulo') ||
+    lower.includes('título') ||
+    lower.includes('cartel') ||
+    lower.includes('escrib') ||
+    lower.includes('frase') ||
+    lower.includes('fuente') ||
+    lower.includes('3d') ||
+    lower.includes('curvo') ||
+    lower.includes('neon') ||
+    lower.includes('neón');
 
+  const quotedMatch = promptText.match(/"([^"]+)"|'([^']+)'/);
   const direction = detectRelativeDirection(lower);
   const anchorNode = nextScene.nodes[nextScene.nodes.length - 1];
 
-  // Extraer nombre personalizado si escribió comillas, o usar etiqueta semántica
-  const quotedMatch = promptText.match(/"([^"]+)"|'([^']+)'/);
+  if (isTextRequest) {
+    const contentText = quotedMatch ? (quotedMatch[1] || quotedMatch[2]) : '¡IMPACTO VISUAL IA!';
+    const fontFamily = detectTextFontFamily(lower);
+    const textVariant = detectTextShapeVariant(lower);
+    const textColor = detectRequestedColor(lower, textVariant);
+    const newNodeId = `texto-${slugifyProjectId(contentText).slice(0, 14)}-${nextScene.nodes.length + 1}`;
+
+    const textNode: DslCanvasNode = {
+      id: newNodeId,
+      label: `Texto: ${contentText.slice(0, 18)}`,
+      type: 'text',
+      text: contentText,
+      fontFamily,
+      textVariant,
+      fontSize: textVariant === '3d-pop' ? 42 : 30,
+      color: textColor,
+      accentColor: textVariant === 'highlight-box' ? '#020617' : '#ffffff',
+      x: anchorNode ? anchorNode.x : 0,
+      y: anchorNode ? anchorNode.y - 260 : 0,
+      z: 0.35,
+      width: Math.max(300, contentText.length * 22),
+      height: 110,
+      relativeTo: anchorNode
+        ? {
+            targetId: anchorNode.id,
+            direction,
+            gap: 220
+          }
+        : undefined,
+      initialOpacity: 0,
+      initialScale: 0
+    };
+
+    nextScene.nodes.push(textNode);
+    operations.push(`addText:${newNodeId}(${textVariant}/${fontFamily})`);
+
+    const eventStart = Number((getLatestSceneTimestamp(nextScene) + 0.35).toFixed(2));
+    nextScene.cameraTrack.push({
+      at: eventStart,
+      duration: 0.95,
+      action: 'focusOn',
+      targetId: newNodeId,
+      zoom: 1.32,
+      rotation: textVariant === '3d-pop' ? -2 : 0,
+      easing: 'easeInOutCubic'
+    });
+    operations.push(`camera:focusOn(${newNodeId})`);
+
+    const useTypewriter =
+      lower.includes('maquina') ||
+      lower.includes('máquina') ||
+      lower.includes('typewriter') ||
+      lower.includes('escrib') ||
+      fontFamily === 'mono';
+
+    const entryAction: NodeActionType = useTypewriter ? 'typewriter' : 'popIn';
+    const popStart = Number((eventStart + 0.15).toFixed(2));
+
+    nextScene.timeline.push({
+      id: createId('act'),
+      at: popStart,
+      duration: useTypewriter ? 1.2 : 0.85,
+      targetId: newNodeId,
+      action: entryAction,
+      easing: 'springBouncy',
+      params: { overshoot: 1.38 }
+    });
+    operations.push(`timeline:${entryAction}(${newNodeId})`);
+
+    nextScene.duration = Math.max(nextScene.duration, Math.ceil(popStart + 2.4));
+
+    return {
+      updatedScene: nextScene,
+      assistantReply: `Agregué el nodo de texto \`${newNodeId}\` ("${contentText}") con forma **${textVariant}**, fuente **${fontFamily}** y animación **${entryAction}** ubicado \`${direction}\` de \`${anchorNode?.id ?? 'origen'}\`.`,
+      appliedOperations: operations
+    };
+  }
+
+  // 4. Crear un nuevo nodo visual (SVG/Imagen) + posicionarlo relativamente + animar cámara y pop-up
+  const matchedVisual =
+    ICON_KEYWORDS.find((item) => item.keywords.some((kw) => lower.includes(kw))) || ICON_KEYWORDS[5];
+
   const label = quotedMatch ? (quotedMatch[1] || quotedMatch[2]) : matchedVisual.defaultLabel;
   const newNodeId = `${slugifyProjectId(label)}-${nextScene.nodes.length + 1}`;
-
-  const isBadge = Boolean(quotedMatch && (lower.includes('texto') || lower.includes('cartel') || lower.includes('badge')));
 
   const newNode: DslCanvasNode = {
     id: newNodeId,
     label,
-    type: isBadge ? 'badge' : 'svg',
+    type: 'svg',
     icon: matchedVisual.icon,
-    text: isBadge ? label : undefined,
     color: matchedVisual.color,
     accentColor: '#ffffff',
     x: anchorNode ? anchorNode.x + 420 : 0,
     y: anchorNode ? anchorNode.y : 0,
     z: Number(((Math.random() * 0.5) - 0.15).toFixed(2)),
-    width: isBadge ? 320 : 240,
-    height: isBadge ? 120 : 240,
+    width: 240,
+    height: 240,
     relativeTo: anchorNode
       ? {
           targetId: anchorNode.id,
@@ -132,9 +243,8 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
   operations.push(`addNode:${newNodeId}`);
 
   const eventStart = Number((getLatestSceneTimestamp(nextScene) + 0.4).toFixed(2));
-
-  // Movimiento de Cámara Virtual hacia el nuevo nodo con leve inclinación cinematográfica
   const tilt = lower.includes('rotar') || lower.includes('giro') ? 6 : -3;
+
   nextScene.cameraTrack.push({
     at: eventStart,
     duration: 1.0,
@@ -146,7 +256,6 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
   });
   operations.push(`camera:focusOn(${newNodeId})`);
 
-  // Efecto Pop-Up con física springBouncy
   const popStart = Number((eventStart + 0.2).toFixed(2));
   nextScene.timeline.push({
     id: createId('act'),
@@ -159,7 +268,6 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
   });
   operations.push(`timeline:popIn(${newNodeId})`);
 
-  // Agregar efecto adicional según el prompt (wiggle, spin, float, pulse)
   const secondaryAction: NodeActionType =
     lower.includes('gire') || lower.includes('rotar')
       ? 'spin'
@@ -187,6 +295,33 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     assistantReply: `Creé el nodo \`${newNodeId}\` (${direction} de \`${anchorNode?.id ?? 'origen'}\`), programé la cámara virtual para viajar hacia él en \`t=${eventStart}s\` y disparé un \`popIn\` con física \`springBouncy\` + \`${secondaryAction}\`.`,
     appliedOperations: operations
   };
+}
+
+function detectTextFontFamily(lower: string): TextFontFamily {
+  if (lower.includes('manuscrit') || lower.includes('mano') || lower.includes('hand')) return 'handwritten';
+  if (lower.includes('mono') || lower.includes('codigo') || lower.includes('código') || lower.includes('terminal')) return 'mono';
+  if (lower.includes('serif') || lower.includes('editorial') || lower.includes('libro')) return 'serif';
+  if (lower.includes('sans') || lower.includes('limpi')) return 'sans';
+  return 'display';
+}
+
+function detectTextShapeVariant(lower: string): TextShapeVariant {
+  if (lower.includes('curv') || lower.includes('arco')) return 'curved-arc';
+  if (lower.includes('resalt') || lower.includes('vox') || lower.includes('cinta') || lower.includes('highlight')) return 'highlight-box';
+  if (lower.includes('neon') || lower.includes('neón') || lower.includes('brill')) return 'neon-glow';
+  if (lower.includes('hueco') || lower.includes('contorno') || lower.includes('outline')) return 'outline-hollow';
+  if (lower.includes('capsula') || lower.includes('cápsula') || lower.includes('pill')) return 'pill-badge';
+  return '3d-pop';
+}
+
+function detectRequestedColor(lower: string, variant: TextShapeVariant): string {
+  if (lower.includes('amarill')) return '#facc15';
+  if (lower.includes('rojo')) return '#f43f5e';
+  if (lower.includes('verde')) return '#10b981';
+  if (lower.includes('rosa') || lower.includes('magenta')) return '#ec4899';
+  if (variant === 'highlight-box') return '#facc15';
+  if (variant === 'neon-glow') return '#38bdf8';
+  return '#f97316';
 }
 
 function detectRelativeDirection(lowerPrompt: string): RelativeDirection {
