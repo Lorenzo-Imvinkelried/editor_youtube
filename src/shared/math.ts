@@ -1,5 +1,5 @@
 /**
- * Responsabilidad Única: Funciones matemáticas puras (interpolación, vectores y sujeción de rangos).
+ * Responsabilidad Única: Funciones matemáticas puras (interpolación, vectores, sujeción de rangos y formato MM:SS).
  * Sin dependencias del DOM ni de React.
  */
 
@@ -13,6 +13,13 @@ export function lerp(start: number, end: number, t: number): number {
 
 export function degToRad(degrees: number): number {
   return (degrees * Math.PI) / 180;
+}
+
+export function formatTimeMmSs(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 export interface Vec2 {

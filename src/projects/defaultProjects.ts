@@ -3,7 +3,10 @@
  * espejando exactamente la estructura de `projects/<project-id>/` en disco.
  */
 
-import { VideoProjectBundle } from './projectTypes';
+import { VideoProjectBundle, ProjectChatMessage, ProjectManifest } from './projectTypes';
+import teslaManifest from '../../projects/historia-nikola-tesla-10m/project.manifest.json';
+import teslaScene from '../../projects/historia-nikola-tesla-10m/scene.dsl.json';
+import teslaChat from '../../projects/historia-nikola-tesla-10m/chat.history.json';
 import cerebroManifest from '../../projects/explicacion-ia-cerebro/project.manifest.json';
 import cerebroScene from '../../projects/explicacion-ia-cerebro/scene.dsl.json';
 import cerebroChat from '../../projects/explicacion-ia-cerebro/chat.history.json';
@@ -11,9 +14,15 @@ import fintechManifest from '../../projects/lanzamiento-startup-fintech/project.
 import fintechScene from '../../projects/lanzamiento-startup-fintech/scene.dsl.json';
 import fintechChat from '../../projects/lanzamiento-startup-fintech/chat.history.json';
 import { DslScene } from '../dsl/dslTypes';
-import { ProjectChatMessage, ProjectManifest } from './projectTypes';
 
 export const SEED_PROJECTS: VideoProjectBundle[] = [
+  {
+    directoryPath: 'projects/historia-nikola-tesla-10m/',
+    manifest: teslaManifest as ProjectManifest,
+    scene: teslaScene as unknown as DslScene,
+    chatHistory: teslaChat as ProjectChatMessage[],
+    assets: []
+  },
   {
     directoryPath: 'projects/explicacion-ia-cerebro/',
     manifest: cerebroManifest as ProjectManifest,
@@ -26,13 +35,6 @@ export const SEED_PROJECTS: VideoProjectBundle[] = [
         kind: 'svg',
         relativePath: 'projects/explicacion-ia-cerebro/assets/svgs/brain_neural.svg',
         createdAt: '2026-11-24T19:00:00.000Z'
-      },
-      {
-        id: 'asset-cpu-svg',
-        name: 'dsl_processor.svg',
-        kind: 'svg',
-        relativePath: 'projects/explicacion-ia-cerebro/assets/svgs/dsl_processor.svg',
-        createdAt: '2026-11-24T19:01:00.000Z'
       }
     ]
   },
@@ -48,13 +50,6 @@ export const SEED_PROJECTS: VideoProjectBundle[] = [
         kind: 'svg',
         relativePath: 'projects/lanzamiento-startup-fintech/assets/svgs/global_market.svg',
         createdAt: '2026-11-24T19:05:00.000Z'
-      },
-      {
-        id: 'asset-rocket-svg',
-        name: 'rocket_launch.svg',
-        kind: 'svg',
-        relativePath: 'projects/lanzamiento-startup-fintech/assets/svgs/rocket_launch.svg',
-        createdAt: '2026-11-24T19:05:30.000Z'
       }
     ]
   }

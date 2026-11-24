@@ -1,0 +1,21 @@
+[
+  {
+    "id": "msg-tesla-1",
+    "role": "user",
+    "timestamp": "2026-11-24T19:54:30.000Z",
+    "text": "Armame un video de 10m (proyecto separado) con la historia de Nikola Tesla."
+  },
+  {
+    "id": "msg-tesla-2",
+    "role": "assistant",
+    "timestamp": "2026-11-24T19:55:00.000Z",
+    "text": "Investigué la biografía completa de Nikola Tesla (1856-1943) y generé un documental de 10 minutos (600 segundos) dividido en 10 capítulos históricos y 80 escenas (240 nodos en el canvas infinito) con fotografías reales de internet (`imageQuery`), títulos 3D, cintas estilo Vox y subtítulos con efecto máquina de escribir.",
+    "appliedOperations": [
+      "createProject:historia-nikola-tesla-10m",
+      "duration:600s(10:00)",
+      "chapters:10",
+      "scenes:80",
+      "nodes:240"
+    ]
+  }
+]

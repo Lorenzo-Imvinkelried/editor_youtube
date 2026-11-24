@@ -76,22 +76,43 @@ export function renderInfiniteCanvasFrame(
   // 4. Líneas conectoras entre nodos con posicionamiento relativo
   drawRelativeConnectors(ctx, evaluatedNodes);
 
-  // 5. Ordenar por profundidad Z para Parallax 2.5D suave
+  // 5. Ordenar por profundidad Z para Parallax 2.5D suave con Frustum Culling para escenas largas (10+ min)
   const sortedByDepth = [...evaluatedNodes].sort((a, b) => a.node.z - b.node.z);
+  const cullRadiusWorldX = (width / effectiveZoom) * 0.85 + 600;
+  const cullRadiusWorldY = (height / effectiveZoom) * 0.85 + 600;
 
   for (const item of sortedByDepth) {
+    // Pre-cargar imágenes cercanas a la cámara en segundo plano antes de su popIn
+    if (
+      item.node.type === 'image' &&
+      Math.abs(item.x - effectiveCamX) < 3800 &&
+      Math.abs(item.y - effectiveCamY) < 2800
+    ) {
+      getOrLoadCanvasImage(item.node.src, item.node.imageQuery);
+    }
+
     if (item.opacity <= 0.01 || item.scale <= 0.01) continue;
 
     // Parallax calibrado (0.10) para dar profundidad 2.5D sin empujar títulos fuera del borde de YouTube
     const parallaxFactor = item.node.z * 0.1;
     const parallaxOffsetX = (effectiveCamX - item.x) * -parallaxFactor;
     const parallaxOffsetY = (effectiveCamY - item.y) * -parallaxFactor;
+    const finalX = item.x + parallaxOffsetX;
+    const finalY = item.y + parallaxOffsetY;
+
+    // Frustum culling: omitir dibujo de nodos que están muy lejos de la vista actual de la cámara
+    if (
+      Math.abs(finalX - effectiveCamX) > cullRadiusWorldX ||
+      Math.abs(finalY - effectiveCamY) > cullRadiusWorldY
+    ) {
+      continue;
+    }
 
     drawSingleCanvasNode(
       ctx,
       item,
-      item.x + parallaxOffsetX,
-      item.y + parallaxOffsetY,
+      finalX,
+      finalY,
       item.node.id === selectedNodeId
     );
   }

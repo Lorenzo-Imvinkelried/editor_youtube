@@ -24,10 +24,10 @@ body {
   height: 100vh;
 }
 
-/* Layout minimalista: Barra superior (54px) + Canvas Centrado Protagonista (1fr) + Reproductor Inferior (54px) */
+/* Layout minimalista: Barra superior (54px) + Canvas Centrado Protagonista (1fr) + Reproductor Inferior (66px) */
 .editor-layout-clean {
   display: grid;
-  grid-template-rows: 54px 1fr 54px;
+  grid-template-rows: 54px 1fr 66px;
   height: 100vh;
   width: 100vw;
 }
@@ -343,9 +343,43 @@ body {
 }
 
 .timeline-scrubber {
-  flex: 1;
+  width: 100%;
   accent-color: #ff0033;
   cursor: pointer;
+}
+
+.scrubber-with-chapters {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.chapters-jump-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.chapter-chip {
+  background: var(--bg-dark);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chapter-chip.active {
+  background: rgba(56, 189, 248, 0.18);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .quick-prompt-form {

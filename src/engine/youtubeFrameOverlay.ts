@@ -5,6 +5,7 @@
  */
 
 import { YouTubeAspectPreset } from '../dsl/dslTypes';
+import { formatTimeMmSs } from '../shared/math';
 
 export interface YouTubeOverlayOptions {
   aspectRatio: YouTubeAspectPreset;
@@ -175,7 +176,7 @@ export function renderYouTubeScreenOverlay(
     ctx.font = '600 11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    const timeStr = `▶  0:${Math.floor(options.currentTime).toString().padStart(2, '0')} / 0:${Math.floor(options.duration).toString().padStart(2, '0')}   •   ${options.projectTitle}`;
+    const timeStr = `▶  ${formatTimeMmSs(options.currentTime)} / ${formatTimeMmSs(options.duration)}   •   ${options.projectTitle}`;
     ctx.fillText(timeStr, frame.x + marginX, controlsY);
 
     ctx.textAlign = 'right';
