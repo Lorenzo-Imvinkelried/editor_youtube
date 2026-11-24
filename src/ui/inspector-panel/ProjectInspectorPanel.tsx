@@ -29,13 +29,14 @@ const FONT_OPTIONS: Array<{ value: TextFontFamily; label: string }> = [
 ];
 
 const VARIANT_OPTIONS: Array<{ value: TextShapeVariant; label: string }> = [
-  { value: 'clean-subtitle', label: 'Título + Año (Estilo Niels Bohr)' },
-  { value: '3d-pop', label: '3D Pop Extruido' },
-  { value: 'highlight-box', label: 'Cinta Resaltada (Vox)' },
-  { value: 'neon-glow', label: 'Resplandor Neón' },
-  { value: 'curved-arc', label: 'Texto en Arco Curvo' },
-  { value: 'outline-hollow', label: 'Contorno Hueco' },
-  { value: 'pill-badge', label: 'Cápsula Redondeada' }
+  { value: 'editorial-paper', label: 'Recorte de Papel Editorial (Vintage)' },
+  { value: 'clean-subtitle', label: 'Título Imprenta + Fecha' },
+  { value: 'vintage-stamp', label: 'Sello de Archivo / Patente' },
+  { value: 'highlight-box', label: 'Tira Resaltada Ocre' },
+  { value: '3d-pop', label: 'Titular Prensa Antigua' },
+  { value: 'curved-arc', label: 'Texto en Arco Clásico' },
+  { value: 'outline-hollow', label: 'Contorno en Tinta' },
+  { value: 'neon-glow', label: 'Cita Manuscrita Estilográfica' }
 ];
 
 export const ProjectInspectorPanel: React.FC<ProjectInspectorPanelProps> = ({

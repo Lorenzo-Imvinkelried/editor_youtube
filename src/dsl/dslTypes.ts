@@ -44,24 +44,27 @@ export type TextFontFamily =
 
 /** Formas y estilos visuales para nodos de texto */
 export type TextShapeVariant =
-  | '3d-pop'         // Texto con extrusión 3D sólida y contorno grueso estilo YouTube
-  | 'highlight-box'  // Cinta resaltadora editorial estilo documental Vox
-  | 'neon-glow'      // Texto luminoso con resplandor neón intenso
-  | 'curved-arc'     // Texto dispuesto en arco circular
-  | 'outline-hollow' // Texto hueco con trazo vectorial
-  | 'pill-badge'     // Tarjeta o cápsula redondeada
-  | 'clean-subtitle'; // Texto limpio minimalista estilo Niels Bohr (Título blanco + subtítulo color)
+  | 'editorial-paper' // Tira o recorte de papel antiguo con tinta de imprenta/máquina de escribir
+  | 'vintage-stamp'   // Sello de archivo / patente clásica con doble recuadro de tinta
+  | 'clean-subtitle'  // Título editorial limpio + fecha/subtítulo debajo
+  | 'highlight-box'   // Cinta resaltadora ocre/papel estilo documental
+  | '3d-pop'          // Titular con sombra sólida de imprenta
+  | 'curved-arc'      // Texto dispuesto en arco clásico
+  | 'outline-hollow'  // Texto calado en tinta
+  | 'neon-glow'       // Resplandor luminoso (para temas modernos)
+  | 'pill-badge';     // Etiqueta de papel/cápsula
 
 export type YouTubeAspectPreset = '16:9' | '9:16';
 
-/** Estilos de fondo cinematográficos sin líneas de grilla */
+/** Estilos de fondo con predominio de Arte en Papel Vintage y Documental */
 export type BackgroundPresetStyle =
-  | 'midnight-bohr'   // Azul noche profundo radial con partículas suaves (estilo Niels Bohr)
-  | 'deep-space'      // Violeta/azul cósmico oscuro sin líneas
-  | 'emerald-studio'  // Verde petróleo oscuro cinematográfico
-  | 'amber-vintage'   // Marrón/ámbar oscuro documental histórico
-  | 'obsidian-clean'  // Negro puro minimalista
-  | 'custom-solid';   // Color personalizado elegido por el usuario
+  | 'vintage-paper'     // Papel antiguo crema/hueso con textura de fibra, motas sepia y viñeta cálida (Por defecto)
+  | 'sepia-parchment'   // Pergamino sepia cálido estilo patente de 1890
+  | 'newsprint-aged'    // Papel de diario / imprenta histórica
+  | 'walnut-archive'    // Mesa de archivo de madera oscura cálida (resalta fotos en papel crema)
+  | 'midnight-bohr'     // Azul noche profundo radial
+  | 'obsidian-clean'    // Negro obsidiana minimalista
+  | 'custom-solid';     // Color personalizado
 
 export interface DslCanvasNode {
   id: string;

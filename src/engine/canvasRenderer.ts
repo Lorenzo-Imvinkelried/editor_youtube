@@ -1,12 +1,15 @@
 /**
- * Responsabilidad Única: Renderizar un fotograma completo del Canvas Cuasi Infinito,
- * con fondo cinematográfico sin líneas (estilo Niels Bohr), tarjetas con degradado interior
- * y borde de neón suave, soporte para 15+ tipos de animaciones y Simulador de Pantalla de YouTube.
+ * Responsabilidad Única: Renderizar un fotograma completo del Canvas Cuasi Infinito
+ * con estética de Arte en Papel Vintage (fotografías impresas grandes con marco crema,
+ * cinta de papel kraft, grabados de patente en tinta y recortes editoriales) a 60 FPS.
  */
 
 import { DslCanvasNode, DslScene } from '../dsl/dslTypes';
 import { degToRad } from '../shared/math';
-import { renderCinematicBackground } from './backgroundRenderer';
+import {
+  isSceneLightPaper,
+  renderCinematicBackground
+} from './backgroundRenderer';
 import { CameraState } from './cameraEvaluator';
 import { getOrLoadCanvasImage } from './imageCache';
 import { EvaluatedCanvasNode } from './nodeEvaluator';
@@ -47,8 +50,9 @@ export function renderInfiniteCanvasFrame(
   const effectiveZoom = camera.zoom * manualOverride.zoomMultiplier * ytFrame.scaleFactor;
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
+  const lightPaper = isSceneLightPaper(scene);
 
-  // 1. Fondo cinematográfico sin líneas (degradado radial + micropartículas estilo Niels Bohr)
+  // 1. Fondo de papel antiguo con textura de fibra y viñeta cálida
   renderCinematicBackground(
     ctx,
     width,
@@ -60,21 +64,6 @@ export function renderInfiniteCanvasFrame(
     scene
   );
 
-  // Opcional: solo dibujar grilla si el usuario explícitamente activó scene.showGrid === true
-  if (scene.showGrid) {
-    drawOptionalGrid(
-      ctx,
-      width,
-      height,
-      ytFrame.centerX,
-      ytFrame.centerY,
-      effectiveCamX,
-      effectiveCamY,
-      effectiveZoom,
-      scene.gridColor
-    );
-  }
-
   // 2. Transformación de espacio de cámara centrada exactamente en el marco YouTube
   ctx.save();
   ctx.translate(ytFrame.centerX, ytFrame.centerY);
@@ -84,14 +73,14 @@ export function renderInfiniteCanvasFrame(
 
   // 3. Ordenar por profundidad Z para Parallax 2.5D suave con Frustum Culling
   const sortedByDepth = [...evaluatedNodes].sort((a, b) => a.node.z - b.node.z);
-  const cullRadiusWorldX = (width / effectiveZoom) * 0.85 + 650;
-  const cullRadiusWorldY = (height / effectiveZoom) * 0.85 + 650;
+  const cullRadiusWorldX = (width / effectiveZoom) * 0.85 + 750;
+  const cullRadiusWorldY = (height / effectiveZoom) * 0.85 + 750;
 
   for (const item of sortedByDepth) {
     if (
       item.node.type === 'image' &&
-      Math.abs(item.x - effectiveCamX) < 3800 &&
-      Math.abs(item.y - effectiveCamY) < 2800
+      Math.abs(item.x - effectiveCamX) < 4200 &&
+      Math.abs(item.y - effectiveCamY) < 3200
     ) {
       getOrLoadCanvasImage(item.node.src, item.node.imageQuery);
     }
@@ -116,7 +105,8 @@ export function renderInfiniteCanvasFrame(
       item,
       finalX,
       finalY,
-      item.node.id === selectedNodeId
+      item.node.id === selectedNodeId,
+      lightPaper
     );
   }
   ctx.restore();
@@ -129,45 +119,13 @@ export function renderInfiniteCanvasFrame(
   ctx.restore();
 }
 
-function drawOptionalGrid(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  centerX: number,
-  centerY: number,
-  camX: number,
-  camY: number,
-  zoom: number,
-  gridColor: string
-): void {
-  ctx.save();
-  const stepPx = Math.max(28, 160 * zoom);
-  const offsetX = ((centerX - camX * zoom) % stepPx + stepPx) % stepPx;
-  const offsetY = ((centerY - camY * zoom) % stepPx + stepPx) % stepPx;
-
-  ctx.strokeStyle = gridColor || '#1e293b';
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.25;
-
-  ctx.beginPath();
-  for (let x = offsetX; x < width; x += stepPx) {
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-  }
-  for (let y = offsetY; y < height; y += stepPx) {
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
 function drawSingleCanvasNode(
   ctx: CanvasRenderingContext2D,
   evaluated: EvaluatedCanvasNode,
   renderX: number,
   renderY: number,
-  isSelected: boolean
+  isSelected: boolean,
+  isLightPaper: boolean
 ): void {
   const { node, scale, scaleX, scaleY, rotation, opacity, textRevealProgress } = evaluated;
 
@@ -178,21 +136,22 @@ function drawSingleCanvasNode(
   ctx.scale(scale * (scaleX ?? 1), scale * (scaleY ?? 1));
 
   if (node.type === 'text') {
-    drawRichTextNode(ctx, node, textRevealProgress, isSelected);
+    drawRichTextNode(ctx, node, textRevealProgress, isSelected, isLightPaper);
   } else if (node.type === 'image') {
-    drawBohrStyleImageOrPortraitCard(ctx, node, isSelected, opacity);
+    drawVintagePrintedPhotograph(ctx, node, isSelected, opacity);
   } else {
-    drawBohrStyleVectorCard(ctx, node, isSelected, opacity);
+    drawVintagePatentSketchCard(ctx, node, isSelected, opacity);
   }
 
   ctx.restore();
 }
 
 /**
- * Dibuja una tarjeta de vector o retrato con el estilo exacto de la captura de Niels Bohr:
- * Degradado interior azul oscuro, halo de neón exterior suave y silueta/ícono luminoso.
+ * Dibuja una fotografía impresa en papel antiguo / marco Polaroid de archivo grande,
+ * con sombra de papel sobre la mesa, encuadre aspect-cover sin deformar rostros,
+ * veladura cálida vintage y cinta adhesiva de papel kraft arriba.
  */
-function drawBohrStyleVectorCard(
+function drawVintagePrintedPhotograph(
   ctx: CanvasRenderingContext2D,
   node: DslCanvasNode,
   isSelected: boolean,
@@ -200,144 +159,217 @@ function drawBohrStyleVectorCard(
 ): void {
   const halfW = node.width / 2;
   const halfH = node.height / 2;
-  const primaryColor = node.color || '#38bdf8';
-
-  // Halo de neón multicapa alrededor de la tarjeta
-  roundRect(ctx, -halfW, -halfH, node.width, node.height, 18);
-  ctx.strokeStyle = primaryColor;
-  ctx.lineWidth = 14;
-  ctx.globalAlpha = opacity * 0.12;
-  ctx.stroke();
-
-  ctx.lineWidth = 6;
-  ctx.globalAlpha = opacity * 0.25;
-  ctx.stroke();
-
-  // Relleno con degradado vertical suave estilo Niels Bohr
-  ctx.globalAlpha = opacity;
-  const cardGrad = ctx.createLinearGradient(0, -halfH, 0, halfH);
-  cardGrad.addColorStop(0, 'rgba(19, 38, 78, 0.92)');
-  cardGrad.addColorStop(1, 'rgba(7, 13, 28, 0.96)');
-  ctx.fillStyle = cardGrad;
-  ctx.fill();
-
-  ctx.strokeStyle = isSelected ? '#ffffff' : primaryColor;
-  ctx.lineWidth = isSelected ? 3.2 : 2.2;
-  ctx.stroke();
-
-  if (node.type === 'badge') {
-    ctx.fillStyle = node.accentColor || primaryColor;
-    ctx.font = '700 18px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(node.text || node.label, 0, -6);
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '500 12px Inter, system-ui, sans-serif';
-    ctx.fillText(node.label, 0, 22);
-  } else {
-    drawBuiltinVectorIcon(
-      ctx,
-      node.icon || 'portrait',
-      Math.min(node.width, node.height) * 0.68,
-      primaryColor
-    );
-
-    if (node.label) {
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '600 13.5px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(node.label, 0, halfH - 18);
-    }
-  }
-}
-
-function drawBohrStyleImageOrPortraitCard(
-  ctx: CanvasRenderingContext2D,
-  node: DslCanvasNode,
-  isSelected: boolean,
-  opacity: number
-): void {
-  const halfW = node.width / 2;
-  const halfH = node.height / 2;
-  const primaryColor = node.color || '#38bdf8';
   const cached = getOrLoadCanvasImage(node.src, node.imageQuery);
 
   ctx.save();
-  roundRect(ctx, -halfW, -halfH, node.width, node.height, 18);
 
-  // Halo de neón exterior suave estilo Niels Bohr
-  ctx.strokeStyle = primaryColor;
-  ctx.lineWidth = 14;
-  ctx.globalAlpha = opacity * 0.12;
-  ctx.stroke();
+  // 1. Sombra cálida de fotografía de papel apoyada sobre la mesa
+  ctx.fillStyle = 'rgba(36, 24, 12, 0.26)';
+  ctx.fillRect(-halfW + 9, -halfH + 12, node.width, node.height);
 
-  ctx.lineWidth = 6;
-  ctx.globalAlpha = opacity * 0.25;
-  ctx.stroke();
-
-  // Fondo interior con degradado azul profundo
+  // 2. Papel fotográfico crema antiguo (#fcf8ef)
   ctx.globalAlpha = opacity;
-  const cardGrad = ctx.createLinearGradient(0, -halfH, 0, halfH);
-  cardGrad.addColorStop(0, 'rgba(18, 36, 74, 0.94)');
-  cardGrad.addColorStop(1, 'rgba(6, 12, 26, 0.98)');
-  ctx.fillStyle = cardGrad;
-  ctx.fill();
+  ctx.fillStyle = '#fcf8ef';
+  ctx.fillRect(-halfW, -halfH, node.width, node.height);
+
+  // Borde sutil de cartulina fotográfica envejecida
+  ctx.strokeStyle = isSelected ? '#9b2226' : '#cbbba0';
+  ctx.lineWidth = isSelected ? 3.5 : 1.8;
+  ctx.strokeRect(-halfW, -halfH, node.width, node.height);
+
+  // Ventana interior de la foto (margen tipo copia revelada de archivo)
+  const padSide = 15;
+  const padTop = 15;
+  const padBottom = node.label ? 48 : 18;
+  const photoX = -halfW + padSide;
+  const photoY = -halfH + padTop;
+  const photoW = node.width - padSide * 2;
+  const photoH = node.height - padTop - padBottom;
+
+  // Fondo sepia suave dentro de la ventana fotográfica
+  ctx.fillStyle = '#e5dac3';
+  ctx.fillRect(photoX, photoY, photoW, photoH);
 
   if (cached && cached.status === 'loaded') {
     ctx.save();
-    roundRect(ctx, -halfW + 3, -halfH + 3, node.width - 6, node.height - 6, 15);
+    ctx.beginPath();
+    ctx.rect(photoX, photoY, photoW, photoH);
     ctx.clip();
-    ctx.drawImage(cached.img, -halfW + 3, -halfH + 3, node.width - 6, node.height - 6);
 
-    // Viñeta inferior suave para integrar la etiqueta si existe
-    const vig = ctx.createLinearGradient(0, halfH - 46, 0, halfH);
-    vig.addColorStop(0, 'rgba(6, 12, 26, 0)');
-    vig.addColorStop(1, 'rgba(6, 12, 26, 0.88)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(-halfW, halfH - 46, node.width, 46);
+    drawImageCover(ctx, cached.img, photoX, photoY, photoW, photoH);
+
+    // Veladura cálida de archivo histórico + viñeta interna sutil
+    ctx.fillStyle = 'rgba(155, 118, 68, 0.09)';
+    ctx.fillRect(photoX, photoY, photoW, photoH);
+
+    ctx.strokeStyle = 'rgba(45, 32, 18, 0.28)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(photoX, photoY, photoW, photoH);
     ctx.restore();
   } else {
-    // Mientras carga o si el usuario aún no puso imagen, dibujar la silueta minimalista de neón estilo Niels Bohr
+    // Mientras descarga la foto de internet, mostrar grabado de retrato clásico en tinta sepia
     drawBuiltinVectorIcon(
       ctx,
       node.icon || 'portrait',
-      Math.min(node.width, node.height) * 0.72,
-      primaryColor
+      Math.min(photoW, photoH) * 0.68,
+      '#5c4328'
     );
   }
 
-  // Borde fino de neón encima
-  roundRect(ctx, -halfW, -halfH, node.width, node.height, 18);
-  ctx.strokeStyle = isSelected ? '#ffffff' : primaryColor;
-  ctx.lineWidth = isSelected ? 3.2 : 2.2;
-  ctx.stroke();
+  // 3. Cinta adhesiva de papel kraft / masking tape pegada arriba de la foto
+  drawKraftMaskingTape(ctx, 0, -halfH - 2, 118, 24, -0.035);
 
+  // 4. Epígrafe impreso estilo máquina de escribir en el margen inferior blanco de la foto
   if (node.label) {
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '600 12.5px Inter, system-ui, sans-serif';
+    ctx.fillStyle = '#261c14';
+    ctx.font = '700 15px "Courier New", "Georgia", serif';
     ctx.textAlign = 'center';
-    ctx.fillText(node.label, 0, halfH - 13);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.label, 0, halfH - padBottom / 2 - 1);
   }
 
   ctx.restore();
 }
 
-function roundRect(
+/**
+ * Dibuja tarjetas de vectores/diagramas como Láminas de Patente / Grabados en Tinta sobre Pergamino.
+ */
+function drawVintagePatentSketchCard(
+  ctx: CanvasRenderingContext2D,
+  node: DslCanvasNode,
+  isSelected: boolean,
+  opacity: number
+): void {
+  const halfW = node.width / 2;
+  const halfH = node.height / 2;
+  const inkColor = resolveVintageInkColor(node.color);
+
+  ctx.save();
+
+  // Sombra de papel pergamino sobre la mesa
+  ctx.fillStyle = 'rgba(38, 25, 12, 0.23)';
+  ctx.fillRect(-halfW + 8, -halfH + 10, node.width, node.height);
+
+  // Papel pergamino técnico (#f0e5ce)
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = '#f0e5ce';
+  ctx.fillRect(-halfW, -halfH, node.width, node.height);
+
+  // Doble recuadro de lámina de patente del siglo XIX
+  ctx.strokeStyle = isSelected ? '#9b2226' : inkColor;
+  ctx.lineWidth = isSelected ? 3.2 : 2.2;
+  ctx.strokeRect(-halfW + 8, -halfH + 8, node.width - 16, node.height - 16);
+
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-halfW + 14, -halfH + 14, node.width - 28, node.height - 28);
+
+  // Encabezado pequeño estilo "FIG. PATENT ARCHIVE"
+  ctx.fillStyle = inkColor;
+  ctx.globalAlpha = opacity * 0.72;
+  ctx.font = '700 11px "Courier New", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('• ARCHIVO HISTÓRICO / LÁMINA •', 0, -halfH + 28);
+
+  ctx.globalAlpha = opacity;
+  if (node.type === 'badge') {
+    ctx.fillStyle = inkColor;
+    ctx.font = '800 20px "Georgia", serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.text || node.label, 0, -6);
+
+    ctx.fillStyle = '#5c4732';
+    ctx.font = '600 13px "Courier New", monospace';
+    ctx.fillText(node.label, 0, 24);
+  } else {
+    drawBuiltinVectorIcon(
+      ctx,
+      node.icon || 'portrait',
+      Math.min(node.width, node.height) * 0.58,
+      inkColor
+    );
+
+    if (node.label) {
+      ctx.fillStyle = '#231911';
+      ctx.font = '700 15px "Georgia", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(node.label, 0, halfH - 26);
+    }
+  }
+
+  // Cinta adhesiva kraft arriba
+  drawKraftMaskingTape(ctx, 0, -halfH - 1, 104, 22, 0.03);
+
+  ctx.restore();
+}
+
+function drawKraftMaskingTape(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
-  radius: number
+  angleRad: number
 ): void {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
-  ctx.closePath();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angleRad);
+  ctx.fillStyle = 'rgba(222, 196, 145, 0.78)';
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = 'rgba(160, 132, 86, 0.45)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  const iw = img.naturalWidth || img.width || w;
+  const ih = img.naturalHeight || img.height || h;
+  const imgRatio = iw / Math.max(1, ih);
+  const boxRatio = w / Math.max(1, h);
+
+  let sx = 0;
+  let sy = 0;
+  let sw = iw;
+  let sh = ih;
+
+  if (imgRatio > boxRatio) {
+    sw = ih * boxRatio;
+    sx = (iw - sw) * 0.5;
+  } else {
+    sh = iw / boxRatio;
+    // Priorizar el tercio superior (0.20) para no cortar frentes/cabezas en retratos históricos
+    sy = (ih - sh) * 0.2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+function resolveVintageInkColor(rawColor: string | undefined): string {
+  if (!rawColor) return '#2b2118';
+  const lower = rawColor.toLowerCase();
+  if (lower === '#38bdf8' || lower === '#22d3ee' || lower === '#06b6d4' || lower === '#60a5fa') {
+    return '#1d3557'; // Azul de Prusia
+  }
+  if (lower === '#facc15' || lower === '#fbbf24' || lower === '#f59e0b') {
+    return '#7f4f24'; // Sepia cobre
+  }
+  if (lower === '#34d399' || lower === '#10b981') {
+    return '#26463b'; // Verde imprenta
+  }
+  if (lower === '#818cf8' || lower === '#a855f7') {
+    return '#4a2545'; // Ciruela antiguo
+  }
+  if (lower === '#f97316' || lower === '#f43f5e' || lower === '#ec4899') {
+    return '#8b261d'; // Rojo lacre
+  }
+  return rawColor;
 }
 
 export function hitTestCanvasNode(

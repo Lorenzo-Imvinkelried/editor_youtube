@@ -9,8 +9,8 @@ import { slugifyProjectId } from '../shared/id';
 import { SEED_PROJECTS } from './defaultProjects';
 import { VideoProjectBundle } from './projectTypes';
 
-const INDEX_STORAGE_KEY = 'infinite_editor.project_index.v6';
-const PROJECT_KEY_PREFIX = 'infinite_editor.project_bundle.v6.';
+const INDEX_STORAGE_KEY = 'infinite_editor.project_index.v7';
+const PROJECT_KEY_PREFIX = 'infinite_editor.project_bundle.v7.';
 
 export function loadAllIsolatedProjects(): VideoProjectBundle[] {
   try {
@@ -84,23 +84,48 @@ export function createIsolatedProjectBundle(name: string, description: string): 
       }
     },
     scene: {
-      version: '1.0.0',
+      version: '1.5.0',
       duration: 10,
-      background: '#090d16',
-      gridColor: '#1e293b',
+      aspectRatio: '16:9',
+      backgroundStyle: 'vintage-paper',
+      background: '#f4ecdc',
+      backgroundSecondary: '#d7c6a9',
+      showGrid: false,
+      gridColor: '#cbbba0',
       nodes: [
         {
-          id: 'nodo-inicial',
+          id: 'foto-principal',
           label: name,
-          type: 'svg',
-          icon: 'sparkles',
-          color: '#38bdf8',
-          accentColor: '#818cf8',
-          x: 0,
-          y: 0,
+          type: 'image',
+          imageQuery: 'Nikola Tesla',
+          icon: 'portrait',
+          color: '#8b261d',
+          x: -240,
+          y: -20,
           z: 0,
-          width: 240,
-          height: 240,
+          width: 520,
+          height: 420,
+          initialRotation: -1.8,
+          initialOpacity: 0,
+          initialScale: 0
+        },
+        {
+          id: 'titulo-inicial',
+          label: name,
+          type: 'text',
+          text: name,
+          subtitle: 'Archivo Documental',
+          fontFamily: 'serif',
+          textVariant: 'clean-subtitle',
+          textAlign: 'left',
+          fontSize: 44,
+          color: '#8b261d',
+          accentColor: '#1e1610',
+          x: 70,
+          y: -30,
+          z: 0.14,
+          width: 560,
+          height: 110,
           initialOpacity: 0,
           initialScale: 0
         }
@@ -109,9 +134,10 @@ export function createIsolatedProjectBundle(name: string, description: string): 
         {
           at: 0,
           duration: 1.0,
-          action: 'focusOn',
-          targetId: 'nodo-inicial',
-          zoom: 1.25,
+          action: 'moveTo',
+          x: 0,
+          y: -15,
+          zoom: 1.0,
           rotation: 0,
           easing: 'easeOutCubic'
         }
@@ -119,12 +145,19 @@ export function createIsolatedProjectBundle(name: string, description: string): 
       timeline: [
         {
           id: 'init-pop',
-          at: 0.15,
+          at: 0.12,
           duration: 0.85,
-          targetId: 'nodo-inicial',
-          action: 'popIn',
-          easing: 'springBouncy',
-          params: { overshoot: 1.3 }
+          targetId: 'foto-principal',
+          action: 'slideInLeft',
+          easing: 'easeOutCubic'
+        },
+        {
+          id: 'init-title',
+          at: 0.28,
+          duration: 0.8,
+          targetId: 'titulo-inicial',
+          action: 'blurFadeIn',
+          easing: 'easeOutCubic'
         }
       ]
     },

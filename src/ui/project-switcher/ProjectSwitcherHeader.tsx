@@ -57,7 +57,7 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
   const aspectRatio: YouTubeAspectPreset =
     activeProject.scene.aspectRatio === '9:16' ? '9:16' : '16:9';
   const bgStyle: BackgroundPresetStyle =
-    activeProject.scene.backgroundStyle || 'midnight-bohr';
+    activeProject.scene.backgroundStyle || 'vintage-paper';
   const hasAudio = Boolean(activeProject.scene.audioTrack?.src);
 
   const handleCreateSubmit = (e: React.FormEvent) => {

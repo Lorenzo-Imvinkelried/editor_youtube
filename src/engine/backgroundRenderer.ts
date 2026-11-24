@@ -1,7 +1,7 @@
 /**
- * Responsabilidad Única: Renderizar fondos cinematográficos sin líneas de grilla
- * (inspirados en la estética documental de Niels Bohr: degradado radial azul medianoche
- * profundo con micropartículas de polvo espacial con paralaje suave).
+ * Responsabilidad Única: Renderizar fondos con estética de Arte en Papel Vintage
+ * (textura procedural de fibras de papel en caché, motas orgánicas de celulosa,
+ * viñeta cálida de bordes envejecidos) además de mesas de archivo oscuras.
  */
 
 import { BackgroundPresetStyle, DslScene } from '../dsl/dslTypes';
@@ -11,54 +11,112 @@ export interface BackgroundPalette {
   label: string;
   innerColor: string;
   outerColor: string;
-  particleColor: string;
+  speckleColor: string;
+  isLightPaper: boolean;
 }
 
 export const BACKGROUND_PRESETS: BackgroundPalette[] = [
   {
+    id: 'vintage-paper',
+    label: '📜 Papel Antiguo Collage (Vintage)',
+    innerColor: '#f4ecdc',
+    outerColor: '#d7c6a9',
+    speckleColor: 'rgba(92, 68, 40, 0.16)',
+    isLightPaper: true
+  },
+  {
+    id: 'sepia-parchment',
+    label: '🏛️ Pergamino Sepia 1890',
+    innerColor: '#ead9bc',
+    outerColor: '#c2a67d',
+    speckleColor: 'rgba(78, 52, 26, 0.2)',
+    isLightPaper: true
+  },
+  {
+    id: 'newsprint-aged',
+    label: '📰 Papel Imprenta / Diario Antiguo',
+    innerColor: '#efece4',
+    outerColor: '#ccc5b5',
+    speckleColor: 'rgba(60, 55, 48, 0.15)',
+    isLightPaper: true
+  },
+  {
+    id: 'walnut-archive',
+    label: '🪵 Mesa de Archivo Oscura (Cálida)',
+    innerColor: '#2d2118',
+    outerColor: '#120c08',
+    speckleColor: 'rgba(214, 184, 140, 0.16)',
+    isLightPaper: false
+  },
+  {
     id: 'midnight-bohr',
-    label: 'Azul Noche (Estilo Niels Bohr)',
+    label: '🌌 Azul Noche Documental',
     innerColor: '#13203d',
     outerColor: '#050811',
-    particleColor: 'rgba(148, 197, 255, 0.35)'
-  },
-  {
-    id: 'deep-space',
-    label: 'Cosmos Violeta Profundo',
-    innerColor: '#1f133d',
-    outerColor: '#06040e',
-    particleColor: 'rgba(216, 180, 254, 0.32)'
-  },
-  {
-    id: 'emerald-studio',
-    label: 'Estudio Esmeralda Oscuro',
-    innerColor: '#0d2b28',
-    outerColor: '#030909',
-    particleColor: 'rgba(110, 231, 183, 0.3)'
-  },
-  {
-    id: 'amber-vintage',
-    label: 'Documental Ámbar Histórico',
-    innerColor: '#2c1c11',
-    outerColor: '#090604',
-    particleColor: 'rgba(253, 224, 71, 0.28)'
+    speckleColor: 'rgba(148, 197, 255, 0.25)',
+    isLightPaper: false
   },
   {
     id: 'obsidian-clean',
-    label: 'Obsidiana Puro Minimalista',
-    innerColor: '#111520',
-    outerColor: '#030407',
-    particleColor: 'rgba(148, 163, 184, 0.25)'
+    label: '⬛ Obsidiana Minimalista',
+    innerColor: '#141416',
+    outerColor: '#050506',
+    speckleColor: 'rgba(160, 160, 170, 0.18)',
+    isLightPaper: false
   }
 ];
 
-// Semillas deterministas para las micropartículas de polvo del fondo (como en la captura de Niels Bohr)
-const AMBIENT_PARTICLES = Array.from({ length: 42 }, (_, i) => ({
-  seedX: ((i * 7919) % 2000) - 1000,
-  seedY: ((i * 6271) % 1200) - 600,
-  radius: (i % 3) * 0.55 + 0.8,
-  alpha: ((i % 5) + 2) * 0.08,
-  depth: ((i % 4) + 1) * 0.04
+export function isSceneLightPaper(scene: DslScene): boolean {
+  const styleId = scene.backgroundStyle || 'vintage-paper';
+  const preset = BACKGROUND_PRESETS.find((p) => p.id === styleId);
+  return preset ? preset.isLightPaper : true;
+}
+
+// Textura de grano y fibras de papel pre-renderizada una única vez en un tile 256x256 para mantener 60 FPS
+let cachedPaperPatternCanvas: HTMLCanvasElement | null = null;
+
+function getPaperGrainTile(): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null;
+  if (cachedPaperPatternCanvas) return cachedPaperPatternCanvas;
+
+  const tile = document.createElement('canvas');
+  tile.width = 240;
+  tile.height = 240;
+  const tctx = tile.getContext('2d');
+  if (!tctx) return null;
+
+  // Fibras finísimas cruzadas y granulado orgánico de papel algodón
+  for (let i = 0; i < 900; i++) {
+    const x = (i * 173) % 240;
+    const y = (i * 293) % 240;
+    const isDark = i % 3 !== 0;
+    tctx.fillStyle = isDark ? 'rgba(75, 53, 31, 0.035)' : 'rgba(255, 252, 245, 0.05)';
+    tctx.fillRect(x, y, (i % 3) + 1, (i % 2) + 1);
+  }
+
+  tctx.strokeStyle = 'rgba(88, 64, 38, 0.028)';
+  tctx.lineWidth = 0.8;
+  for (let j = 0; j < 45; j++) {
+    const sx = (j * 97) % 240;
+    const sy = (j * 151) % 240;
+    const angle = ((j * 47) % 314) / 100;
+    tctx.beginPath();
+    tctx.moveTo(sx, sy);
+    tctx.lineTo(sx + Math.cos(angle) * 14, sy + Math.sin(angle) * 14);
+    tctx.stroke();
+  }
+
+  cachedPaperPatternCanvas = tile;
+  return tile;
+}
+
+// Motas orgánicas de celulosa / archivo que se desplazan sutilmente con la cámara
+const PAPER_FIBERS = Array.from({ length: 48 }, (_, i) => ({
+  seedX: ((i * 7919) % 2200) - 1100,
+  seedY: ((i * 6271) % 1300) - 650,
+  radius: (i % 3) * 0.65 + 0.7,
+  alpha: ((i % 4) + 2) * 0.09,
+  depth: ((i % 3) + 1) * 0.05
 }));
 
 export function renderCinematicBackground(
@@ -73,7 +131,7 @@ export function renderCinematicBackground(
 ): void {
   ctx.save();
 
-  const styleId: BackgroundPresetStyle = scene.backgroundStyle || 'midnight-bohr';
+  const styleId: BackgroundPresetStyle = scene.backgroundStyle || 'vintage-paper';
   const preset =
     BACKGROUND_PRESETS.find((p) => p.id === styleId) || BACKGROUND_PRESETS[0];
 
@@ -86,34 +144,47 @@ export function renderCinematicBackground(
       ? scene.backgroundSecondary
       : preset.outerColor;
 
-  // 1. Degradado radial suave centrado en la pantalla de YouTube (exactamente como la imagen de Niels Bohr)
-  const radius = Math.max(width, height) * 0.65;
+  // 1. Degradado radial de iluminación de mesa de papel (centro luminoso cálido, bordes envejecidos)
+  const radius = Math.max(width, height) * 0.72;
   const radial = ctx.createRadialGradient(
     centerX,
     centerY,
-    radius * 0.05,
+    radius * 0.08,
     centerX,
     centerY,
     radius
   );
   radial.addColorStop(0, inner);
-  radial.addColorStop(0.55, lerpHexColor(inner, outer, 0.55));
+  radial.addColorStop(0.65, lerpHexColor(inner, outer, 0.48));
   radial.addColorStop(1, outer);
 
   ctx.fillStyle = radial;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Micropartículas de polvo luminoso flotando con paralaje sutil (sin líneas de grilla)
-  ctx.fillStyle = preset.particleColor;
-  for (const p of AMBIENT_PARTICLES) {
-    const px =
-      ((((centerX + p.seedX - camX * p.depth) % width) + width) % width);
-    const py =
-      ((((centerY + p.seedY - camY * p.depth) % height) + height) % height);
+  // 2. Capa de textura de grano de papel desplazándose solidariamente con el lienzo
+  const grainTile = getPaperGrainTile();
+  if (grainTile) {
+    const pattern = ctx.createPattern(grainTile, 'repeat');
+    if (pattern) {
+      ctx.save();
+      const offsetX = -((camX * 0.15) % 240);
+      const offsetY = -((camY * 0.15) % 240);
+      ctx.translate(offsetX, offsetY);
+      ctx.fillStyle = pattern;
+      ctx.fillRect(-240, -240, width + 480, height + 480);
+      ctx.restore();
+    }
+  }
 
-    ctx.globalAlpha = p.alpha;
+  // 3. Pequeñas motas de celulosa / papel antiguo
+  ctx.fillStyle = preset.speckleColor;
+  for (const f of PAPER_FIBERS) {
+    const px = (((centerX + f.seedX - camX * f.depth) % width) + width) % width;
+    const py = (((centerY + f.seedY - camY * f.depth) % height) + height) % height;
+
+    ctx.globalAlpha = f.alpha;
     ctx.beginPath();
-    ctx.arc(px, py, p.radius, 0, Math.PI * 2);
+    ctx.arc(px, py, f.radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -131,10 +202,10 @@ function lerpHexColor(hexA: string, hexB: string, t: number): string {
 
 function parseHex(hex: string): { r: number; g: number; b: number } {
   const clean = hex.replace('#', '');
-  if (clean.length !== 6) return { r: 10, g: 16, b: 30 };
+  if (clean.length !== 6) return { r: 240, g: 232, b: 216 };
   return {
-    r: parseInt(clean.slice(0, 2), 16) || 10,
-    g: parseInt(clean.slice(2, 4), 16) || 16,
-    b: parseInt(clean.slice(4, 6), 16) || 30
+    r: parseInt(clean.slice(0, 2), 16) || 240,
+    g: parseInt(clean.slice(2, 4), 16) || 232,
+    b: parseInt(clean.slice(4, 6), 16) || 216
   };
 }

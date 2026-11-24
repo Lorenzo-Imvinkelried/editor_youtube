@@ -212,16 +212,17 @@ export const App: React.FC = () => {
     const newId = createId('imagen');
     const newNode: DslCanvasNode = {
       id: newId,
-      label: label || 'Imagen Web',
+      label: label || 'Fotografía de Archivo',
       type: 'image',
       src: imageUrl,
       imageQuery: query,
-      color: '#38bdf8',
+      color: '#8b261d',
       x: Math.round(cameraState.x),
-      y: Math.round(cameraState.y),
-      z: 0.15,
-      width: 320,
-      height: 240,
+      y: Math.round(cameraState.y - 20),
+      z: 0.12,
+      width: 560,
+      height: 430,
+      initialRotation: -1.5,
       initialOpacity: 1,
       initialScale: 1
     };
@@ -252,19 +253,20 @@ export const App: React.FC = () => {
     const newId = createId('texto');
     const newNode: DslCanvasNode = {
       id: newId,
-      label: 'NUEVO TEXTO',
+      label: 'TÍTULO EDITORIAL',
       type: 'text',
-      text: 'NUEVO TÍTULO YOUTUBE',
-      fontFamily: 'display',
+      text: 'TÍTULO DE ARCHIVO',
+      subtitle: 'DOCUMENTO HISTÓRICO',
+      fontFamily: 'serif',
       textVariant: '3d-pop',
-      fontSize: 40,
-      color: '#f97316',
-      accentColor: '#ffffff',
+      fontSize: 44,
+      color: '#8b261d',
+      accentColor: '#1e1610',
       x: Math.round(cameraState.x),
       y: Math.round(cameraState.y),
-      z: 0.3,
-      width: 480,
-      height: 100,
+      z: 0.2,
+      width: 560,
+      height: 110,
       initialOpacity: 1,
       initialScale: 1
     };
