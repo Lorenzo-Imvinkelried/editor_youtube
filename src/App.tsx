@@ -160,14 +160,28 @@ export const App: React.FC = () => {
     setIsPlaying(true);
   };
 
-  const handleSaveAudioTrack = (track: DslAudioTrack | undefined) => {
-    updateActiveProject((proj) => ({
-      ...proj,
-      scene: {
-        ...proj.scene,
-        audioTrack: track
-      }
-    }));
+  const handleSaveAudioAndScene = (
+    track: DslAudioTrack | undefined,
+    retimedScene?: DslScene
+  ) => {
+    updateActiveProject((proj) => {
+      const baseScene = retimedScene ?? proj.scene;
+      return {
+        ...proj,
+        manifest: {
+          ...proj.manifest,
+          durationSeconds: baseScene.duration
+        },
+        scene: {
+          ...baseScene,
+          audioTrack: track
+        }
+      };
+    });
+    if (track) {
+      setCurrentTime(0);
+      setIsPlaying(true);
+    }
   };
 
   const handleChangeAspectRatio = (aspectRatio: YouTubeAspectPreset) => {
@@ -384,9 +398,9 @@ export const App: React.FC = () => {
 
       {isAudioModalOpen && (
         <AudioManagerModal
-          currentTrack={activeProject.scene.audioTrack}
-          sceneDuration={activeProject.scene.duration}
-          onSaveAudioTrack={handleSaveAudioTrack}
+          projectId={activeProject.manifest.id}
+          scene={activeProject.scene}
+          onSaveAudioAndScene={handleSaveAudioAndScene}
           onClose={() => setIsAudioModalOpen(false)}
         />
       )}

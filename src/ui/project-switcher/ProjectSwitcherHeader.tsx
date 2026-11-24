@@ -162,9 +162,10 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
           type="button"
           className={`btn-secondary ${hasAudio ? 'btn-audio-active' : ''}`}
           onClick={onOpenAudioModal}
+          title="Narrar automáticamente con ElevenLabs o subir audio MP3/WAV"
         >
           <Music size={14} />
-          {hasAudio ? 'Audio ON' : '+ Audio'}
+          {hasAudio ? 'Voz / Audio ON' : '🎙️ Narrar / Audio'}
         </button>
 
         <button

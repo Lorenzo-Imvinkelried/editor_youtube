@@ -51,6 +51,8 @@ EDITOR/
     │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG/texto en el segundo t
     │   ├── backgroundRenderer.ts        # Fondos de papel antiguo con grano procedural y viñeta
     │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
+    │   ├── narrationExtractor.ts        # Extrae guion por escena y re-sincroniza tiempos a la voz real
+    │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs y ensamblador de pista maestra WAV
     │   ├── mp4Exporter.ts               # Codificador determinista 60 FPS a MP4 con WebCodecs y audio
     │   └── canvasRenderer.ts            # Dibuja fotografías en papel, láminas de patente y recorte de cuadro
     ├── projects/                        # Gestión aislada de cada proyecto de video
