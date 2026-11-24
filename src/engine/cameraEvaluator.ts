@@ -34,25 +34,21 @@ export function evaluateCameraAtTime(
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const sorted = [...cameraTrack].sort((a, b) => a.at - b.at);
 
+  // Inicializar la cámara en el primer objetivo para evitar barridos desde coordenadas vacías en t=0
+  const firstKf = sorted[0];
+  if (firstKf) {
+    const firstPos = resolveKeyframeTargetPosition(firstKf, nodeMap, 0, 0);
+    state.x = firstPos.x;
+    state.y = firstPos.y;
+    state.zoom = (firstKf.zoom ?? 1) * 0.92;
+    state.rotation = 0;
+    state.activeTargetId = firstPos.activeTargetId;
+  }
+
   for (const keyframe of sorted) {
     if (timeSeconds < keyframe.at) break;
 
-    let targetX = state.x;
-    let targetY = state.y;
-
-    if (keyframe.action === 'focusOn' && keyframe.targetId) {
-      const targetNode = nodeMap.get(keyframe.targetId);
-      if (targetNode) {
-        targetX = targetNode.x;
-        targetY = targetNode.y;
-        state.activeTargetId = targetNode.id;
-      }
-    } else {
-      if (typeof keyframe.x === 'number') targetX = keyframe.x;
-      if (typeof keyframe.y === 'number') targetY = keyframe.y;
-      state.activeTargetId = undefined;
-    }
-
+    const resolved = resolveKeyframeTargetPosition(keyframe, nodeMap, state.x, state.y);
     const targetZoom = typeof keyframe.zoom === 'number' ? keyframe.zoom : state.zoom;
     const targetRotation = typeof keyframe.rotation === 'number' ? keyframe.rotation : state.rotation;
 
@@ -60,11 +56,36 @@ export function evaluateCameraAtTime(
     const rawProgress = (timeSeconds - keyframe.at) / duration;
     const eased = evaluateEasing(keyframe.easing || 'easeInOutCubic', rawProgress);
 
-    state.x = lerp(state.x, targetX, eased);
-    state.y = lerp(state.y, targetY, eased);
+    state.x = lerp(state.x, resolved.x, eased);
+    state.y = lerp(state.y, resolved.y, eased);
     state.zoom = lerp(state.zoom, targetZoom, eased);
     state.rotation = lerp(state.rotation, targetRotation, eased);
+    state.activeTargetId = resolved.activeTargetId;
   }
 
   return state;
+}
+
+function resolveKeyframeTargetPosition(
+  keyframe: DslCameraKeyframe,
+  nodeMap: Map<string, DslCanvasNode>,
+  fallbackX: number,
+  fallbackY: number
+): { x: number; y: number; activeTargetId?: string } {
+  if (keyframe.action === 'focusOn' && keyframe.targetId) {
+    const targetNode = nodeMap.get(keyframe.targetId);
+    if (targetNode) {
+      return {
+        x: typeof keyframe.x === 'number' ? keyframe.x : targetNode.x,
+        y: typeof keyframe.y === 'number' ? keyframe.y : targetNode.y,
+        activeTargetId: targetNode.id
+      };
+    }
+  }
+
+  return {
+    x: typeof keyframe.x === 'number' ? keyframe.x : fallbackX,
+    y: typeof keyframe.y === 'number' ? keyframe.y : fallbackY,
+    activeTargetId: undefined
+  };
 }

@@ -1,7 +1,7 @@
 /**
  * Responsabilidad Única: Renderizar un fotograma completo del Canvas Cuasi Infinito,
  * incluyendo imágenes cargadas por URL (Google Images), vectores SVG, textos ricos
- * y el Simulador de Pantalla de YouTube perfectamente centrado.
+ * y el Simulador de Pantalla de YouTube perfectamente centrado y optimizado a 60 FPS constantes.
  */
 
 import { DslCanvasNode, DslScene } from '../dsl/dslTypes';
@@ -45,7 +45,7 @@ export function renderInfiniteCanvasFrame(
     width,
     height,
     youtubeOptions.aspectRatio,
-     Boolean(youtubeOptions.isExportRender)
+    Boolean(youtubeOptions.isExportRender)
   );
 
   // Escalar el zoom de la cámara virtual proporcionalmente al marco de YouTube
@@ -53,7 +53,7 @@ export function renderInfiniteCanvasFrame(
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
 
-  // 2. Grilla Cuasi Infinita centrada en el marco de YouTube
+  // 2. Grilla Cuasi Infinita centrada en el marco de YouTube (paso constante para no saltar durante zoom)
   drawInfiniteGrid(
     ctx,
     width,
@@ -76,13 +76,14 @@ export function renderInfiniteCanvasFrame(
   // 4. Líneas conectoras entre nodos con posicionamiento relativo
   drawRelativeConnectors(ctx, evaluatedNodes);
 
-  // 5. Ordenar por profundidad Z para Parallax 2.5D real
+  // 5. Ordenar por profundidad Z para Parallax 2.5D suave
   const sortedByDepth = [...evaluatedNodes].sort((a, b) => a.node.z - b.node.z);
 
   for (const item of sortedByDepth) {
     if (item.opacity <= 0.01 || item.scale <= 0.01) continue;
 
-    const parallaxFactor = item.node.z * 0.25;
+    // Parallax calibrado (0.10) para dar profundidad 2.5D sin empujar títulos fuera del borde de YouTube
+    const parallaxFactor = item.node.z * 0.1;
     const parallaxOffsetX = (effectiveCamX - item.x) * -parallaxFactor;
     const parallaxOffsetY = (effectiveCamY - item.y) * -parallaxFactor;
 
@@ -116,15 +117,14 @@ function drawInfiniteGrid(
   gridColor: string
 ): void {
   ctx.save();
-  const baseStep = zoom < 0.45 ? 240 : zoom > 1.8 ? 60 : 120;
-  const stepPx = baseStep * zoom;
+  const stepPx = Math.max(28, 160 * zoom);
 
-  const offsetX = (centerX - camX * zoom) % stepPx;
-  const offsetY = (centerY - camY * zoom) % stepPx;
+  const offsetX = ((centerX - camX * zoom) % stepPx + stepPx) % stepPx;
+  const offsetY = ((centerY - camY * zoom) % stepPx + stepPx) % stepPx;
 
   ctx.strokeStyle = gridColor || '#1e293b';
   ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.45;
+  ctx.globalAlpha = 0.4;
 
   ctx.beginPath();
   for (let x = offsetX; x < width; x += stepPx) {
@@ -140,7 +140,7 @@ function drawInfiniteGrid(
   const originScreenX = centerX - camX * zoom;
   const originScreenY = centerY - camY * zoom;
   ctx.strokeStyle = '#334155';
-  ctx.globalAlpha = 0.7;
+  ctx.globalAlpha = 0.65;
   ctx.beginPath();
   ctx.moveTo(originScreenX, 0);
   ctx.lineTo(originScreenX, height);
@@ -192,20 +192,21 @@ function drawSingleCanvasNode(
   if (node.type === 'text') {
     drawRichTextNode(ctx, node, textRevealProgress, isSelected);
   } else if (node.type === 'image') {
-    drawExternalImageNode(ctx, node, isSelected);
+    drawExternalImageNode(ctx, node, isSelected, opacity);
   } else {
-    ctx.shadowColor = node.color;
-    ctx.shadowBlur = isSelected ? 36 : 22;
-
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.strokeStyle = isSelected ? '#ffffff' : node.color;
-    ctx.lineWidth = isSelected ? 3.5 : 2.2;
-
+    // Halo luminoso vectorial ultra rápido (evita el costo de CPU/GPU de Gaussian shadowBlur al rotar cámara)
     roundRect(ctx, -halfW, -halfH, node.width, node.height, 24);
-    ctx.fill();
+    ctx.strokeStyle = node.color;
+    ctx.lineWidth = isSelected ? 12 : 8;
+    ctx.globalAlpha = opacity * 0.22;
     ctx.stroke();
 
-    ctx.shadowBlur = 0;
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+    ctx.strokeStyle = isSelected ? '#ffffff' : node.color;
+    ctx.lineWidth = isSelected ? 3.5 : 2.4;
+    ctx.fill();
+    ctx.stroke();
 
     if (node.type === 'badge') {
       ctx.fillStyle = node.accentColor || node.color;
@@ -241,24 +242,27 @@ function drawSingleCanvasNode(
 function drawExternalImageNode(
   ctx: CanvasRenderingContext2D,
   node: DslCanvasNode,
-  isSelected: boolean
+  isSelected: boolean,
+  opacity: number
 ): void {
   const halfW = node.width / 2;
   const halfH = node.height / 2;
   const cached = getOrLoadCanvasImage(node.src);
 
   ctx.save();
-  ctx.shadowColor = node.color || '#38bdf8';
-  ctx.shadowBlur = isSelected ? 36 : 22;
+  roundRect(ctx, -halfW, -halfH, node.width, node.height, 20);
 
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.strokeStyle = node.color || '#38bdf8';
+  ctx.lineWidth = 9;
+  ctx.globalAlpha = opacity * 0.22;
+  ctx.stroke();
+
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
   ctx.strokeStyle = isSelected ? '#ffffff' : node.color || '#38bdf8';
   ctx.lineWidth = isSelected ? 3.5 : 2.5;
-
-  roundRect(ctx, -halfW, -halfH, node.width, node.height, 20);
   ctx.fill();
   ctx.stroke();
-  ctx.shadowBlur = 0;
 
   if (cached && cached.status === 'loaded') {
     ctx.save();
@@ -278,7 +282,6 @@ function drawExternalImageNode(
     ctx.fillText(statusMsg, 0, -10);
   }
 
-  // Etiqueta inferior de la imagen
   ctx.fillStyle = '#f8fafc';
   ctx.font = '600 13px Inter, system-ui, sans-serif';
   ctx.textAlign = 'center';

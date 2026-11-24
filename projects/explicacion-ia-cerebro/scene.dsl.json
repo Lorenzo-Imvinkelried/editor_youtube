@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "duration": 10,
   "aspectRatio": "16:9",
   "background": "#090d16",
@@ -12,14 +12,14 @@
       "text": "¿CÓMO PIENSA UNA IA?",
       "fontFamily": "display",
       "textVariant": "3d-pop",
-      "fontSize": 44,
+      "fontSize": 42,
       "color": "#f97316",
       "accentColor": "#ffffff",
       "x": 0,
-      "y": -230,
-      "z": 0.35,
+      "y": -175,
+      "z": 0.2,
       "width": 520,
-      "height": 100,
+      "height": 90,
       "initialOpacity": 0,
       "initialScale": 0
     },
@@ -31,10 +31,10 @@
       "color": "#38bdf8",
       "accentColor": "#818cf8",
       "x": 0,
-      "y": 40,
+      "y": 45,
       "z": 0,
-      "width": 240,
-      "height": 240,
+      "width": 230,
+      "height": 230,
       "initialOpacity": 0,
       "initialScale": 0.2
     },
@@ -48,9 +48,9 @@
       "fontSize": 30,
       "color": "#38bdf8",
       "accentColor": "#e0f2fe",
-      "x": -540,
-      "y": -120,
-      "z": 0.2,
+      "x": -520,
+      "y": -60,
+      "z": 0.15,
       "width": 420,
       "height": 90,
       "initialOpacity": 0,
@@ -63,12 +63,12 @@
       "icon": "cpu",
       "color": "#f59e0b",
       "accentColor": "#fbbf24",
-      "relativeTo": { "targetId": "cerebro-central", "direction": "rightOf", "gap": 380 },
-      "x": 620,
-      "y": 40,
+      "relativeTo": { "targetId": "cerebro-central", "direction": "rightOf", "gap": 340 },
+      "x": 570,
+      "y": 45,
       "z": -0.1,
-      "width": 230,
-      "height": 230,
+      "width": 220,
+      "height": 220,
       "initialOpacity": 0,
       "initialScale": 0
     },
@@ -82,10 +82,10 @@
       "fontSize": 28,
       "color": "#facc15",
       "accentColor": "#020617",
-      "relativeTo": { "targetId": "dsl-engine", "direction": "below", "gap": 180 },
-      "x": 620,
-      "y": 420,
-      "z": 0.3,
+      "relativeTo": { "targetId": "dsl-engine", "direction": "below", "gap": 140 },
+      "x": 570,
+      "y": 340,
+      "z": 0.2,
       "width": 460,
       "height": 90,
       "initialOpacity": 0,
@@ -96,9 +96,10 @@
     {
       "at": 0,
       "duration": 1.1,
-      "action": "focusOn",
-      "targetId": "cerebro-central",
-      "zoom": 1.15,
+      "action": "moveTo",
+      "x": 0,
+      "y": -40,
+      "zoom": 1.05,
       "rotation": 0,
       "easing": "easeOutCubic"
     },
@@ -107,8 +108,8 @@
       "duration": 1.0,
       "action": "focusOn",
       "targetId": "nota-manuscrita",
-      "zoom": 1.35,
-      "rotation": -4,
+      "zoom": 1.2,
+      "rotation": -3,
       "easing": "easeInOutCubic"
     },
     {
@@ -116,7 +117,7 @@
       "duration": 1.2,
       "action": "focusOn",
       "targetId": "dsl-engine",
-      "zoom": 1.25,
+      "zoom": 1.15,
       "rotation": 3,
       "easing": "easeInOutCubic"
     },
@@ -125,17 +126,17 @@
       "duration": 1.1,
       "action": "focusOn",
       "targetId": "cinta-vox",
-      "zoom": 1.35,
+      "zoom": 1.2,
       "rotation": 0,
-      "easing": "springBouncy"
+      "easing": "springSmooth"
     },
     {
       "at": 8.2,
       "duration": 1.4,
       "action": "moveTo",
-      "x": 110,
-      "y": 70,
-      "zoom": 0.65,
+      "x": 60,
+      "y": 60,
+      "zoom": 0.75,
       "rotation": 0,
       "easing": "easeInOutCubic"
     }
@@ -148,7 +149,7 @@
       "targetId": "titulo-3d-youtube",
       "action": "popIn",
       "easing": "springBouncy",
-      "params": { "overshoot": 1.38 }
+      "params": { "overshoot": 1.35 }
     },
     {
       "id": "act-1",
@@ -166,7 +167,7 @@
       "targetId": "cerebro-central",
       "action": "float",
       "easing": "linear",
-      "params": { "amplitude": 14, "speed": 2.2 }
+      "params": { "amplitude": 12, "speed": 2.2 }
     },
     {
       "id": "act-3",

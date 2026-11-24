@@ -1,6 +1,7 @@
 /**
  * Responsabilidad Única: Dibujar el simulador de pantalla de YouTube (16:9 Horizontal o 9:16 Shorts)
- * exactamente centrado tanto horizontal como verticalmente sobre el visor del canvas infinito.
+ * exactamente centrado tanto horizontal como verticalmente sobre el visor del canvas infinito,
+ * con una escala lógica amplia (1600x900) para que ningún título ni nodo quede recortado por el borde.
  */
 
 import { YouTubeAspectPreset } from '../dsl/dslTypes';
@@ -38,8 +39,8 @@ export function computeYouTubeFrameRect(
   fullBleed = false
 ): ComputedYouTubeFrameRect {
   const targetRatio = aspectRatio === '9:16' ? 9 / 16 : 16 / 9;
-  const padX = fullBleed ? 0 : 48;
-  const padY = fullBleed ? 0 : 48;
+  const padX = fullBleed ? 0 : 44;
+  const padY = fullBleed ? 0 : 44;
 
   const availW = Math.max(240, viewportWidth - padX * 2);
   const availH = Math.max(180, viewportHeight - padY * 2);
@@ -57,7 +58,8 @@ export function computeYouTubeFrameRect(
   const x = centerX - frameW / 2;
   const y = centerY - frameH / 2;
 
-  const referenceWidth = aspectRatio === '9:16' ? 580 : 1120;
+  // Espacio lógico amplio (1600x900 en 16:9 y 900x1600 en 9:16) para que títulos y nodos entren cómodos
+  const referenceWidth = aspectRatio === '9:16' ? 900 : 1600;
 
   return {
     x,
@@ -81,7 +83,7 @@ export function renderYouTubeScreenOverlay(
 
   // 1. Máscara oscura simétrica fuera de la pantalla de YouTube
   if (options.dimOutsideFrame) {
-    ctx.fillStyle = 'rgba(3, 7, 18, 0.76)';
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.78)';
     ctx.fillRect(0, 0, viewportWidth, frame.y);
     ctx.fillRect(0, frame.y + frame.height, viewportWidth, viewportHeight - (frame.y + frame.height));
     ctx.fillRect(0, frame.y, frame.x, frame.height);
@@ -95,7 +97,7 @@ export function renderYouTubeScreenOverlay(
 
   // 2. Marco luminoso exacto de la pantalla de YouTube
   ctx.strokeStyle = options.showPlayerChrome ? '#ff0033' : 'rgba(56, 189, 248, 0.85)';
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2;
   ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
 
   // 3. Pastilla centrada arriba del cuadro de YouTube
@@ -107,7 +109,7 @@ export function renderYouTubeScreenOverlay(
   const badgeW = ctx.measureText(badgeText).width + 22;
   const badgeH = 22;
   const badgeX = frame.centerX - badgeW / 2;
-  const badgeY = frame.y - badgeH - 6;
+  const badgeY = Math.max(6, frame.y - badgeH - 6);
 
   ctx.fillStyle = options.showPlayerChrome ? '#ff0033' : '#0284c7';
   ctx.beginPath();
@@ -119,9 +121,9 @@ export function renderYouTubeScreenOverlay(
   ctx.textBaseline = 'middle';
   ctx.fillText(badgeText, frame.centerX, badgeY + badgeH / 2);
 
-  // 4. Simulación del reproductor de YouTube (barra roja, controles y guía central/tercios)
+  // 4. Simulación del reproductor de YouTube (barra roja, controles y guía de tercios)
   if (options.showPlayerChrome) {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 6]);
     ctx.beginPath();
@@ -136,8 +138,7 @@ export function renderYouTubeScreenOverlay(
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Sombra inferior del reproductor de YouTube
-    const barHeight = 40;
+    const barHeight = 38;
     const grad = ctx.createLinearGradient(
       0,
       frame.y + frame.height - barHeight * 1.4,
@@ -154,8 +155,7 @@ export function renderYouTubeScreenOverlay(
       barHeight * 1.4
     );
 
-    // Barra de progreso roja de YouTube
-    const progressY = frame.y + frame.height - 26;
+    const progressY = frame.y + frame.height - 25;
     const marginX = 16;
     const trackW = frame.width - marginX * 2;
     const progressRatio = Math.min(1, Math.max(0, options.currentTime / Math.max(1, options.duration)));
@@ -170,8 +170,7 @@ export function renderYouTubeScreenOverlay(
     ctx.arc(frame.x + marginX + trackW * progressRatio, progressY + 1.75, 5.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tiempo e íconos de YouTube
-    const controlsY = frame.y + frame.height - 11;
+    const controlsY = frame.y + frame.height - 10;
     ctx.fillStyle = '#ffffff';
     ctx.font = '600 11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'left';
