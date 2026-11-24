@@ -42,11 +42,17 @@ EDITOR/
     │   └── dslReference.ts              # Especificación del lenguaje para el System Prompt del LLM
     ├── engine/                          # Motor determinista del Canvas Infinito (0% React)
     │   ├── easings.ts                   # Curvas cubic-bezier y físicas de resorte (spring pop-up)
+    │   ├── textMeasure.ts               # Medición y salto de línea automático para ajuste de textos
+    │   ├── textLayout.ts                # Cálculo de cajas tipográficas y extensión real dibujada
+    │   ├── textRenderer.ts              # Renderiza textos editoriales y sellos vintage dentro de su caja
+    │   ├── nodeBounds.ts                # Calcula cajas envolventes (bounding boxes) con rotación y animaciones
+    │   ├── cameraAutoFramer.ts          # Encuadra y centra automáticamente cada toma dentro del margen seguro
     │   ├── cameraEvaluator.ts           # Calcula posición (x,y), zoom, rotación y parallax 2.5D
     │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG/texto en el segundo t
-    │   ├── textRenderer.ts              # Renderiza textos en múltiples fuentes y formas (3D, arco, neón, Vox)
-    │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD y zonas seguras
-    │   └── canvasRenderer.ts            # Dibuja la grilla infinita, nodos, sombras, glow y HUD
+    │   ├── backgroundRenderer.ts        # Fondos de papel antiguo con grano procedural y viñeta
+    │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
+    │   ├── mp4Exporter.ts               # Codificador determinista 60 FPS a MP4 con WebCodecs y audio
+    │   └── canvasRenderer.ts            # Dibuja fotografías en papel, láminas de patente y recorte de cuadro
     ├── projects/                        # Gestión aislada de cada proyecto de video
     │   ├── projectTypes.ts              # Estructura de un paquete de proyecto aislado
     │   ├── defaultProjects.ts           # Proyectos semilla autocontenidos

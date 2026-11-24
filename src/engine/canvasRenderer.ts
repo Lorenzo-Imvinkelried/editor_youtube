@@ -12,6 +12,7 @@ import {
 } from './backgroundRenderer';
 import { CameraState } from './cameraEvaluator';
 import { getOrLoadCanvasImage } from './imageCache';
+import { getNodeLocalExtents } from './nodeBounds';
 import { EvaluatedCanvasNode } from './nodeEvaluator';
 import { drawBuiltinVectorIcon } from './svgIcons';
 import { drawRichTextNode } from './textRenderer';
@@ -51,6 +52,21 @@ export function renderInfiniteCanvasFrame(
   const effectiveCamX = camera.x - manualOverride.panX / effectiveZoom;
   const effectiveCamY = camera.y - manualOverride.panY / effectiveZoom;
   const lightPaper = isSceneLightPaper(scene);
+
+  // Cuando la máscara del reproductor está activa, rellenar el exterior oscuro y recortar (clip)
+  // estrictamente al rectángulo del video para que nada sobresalga jamás fuera del límite.
+  const clipToVideoFrame = !youtubeOptions.isExportRender && youtubeOptions.dimOutsideFrame;
+  if (clipToVideoFrame) {
+    ctx.fillStyle = '#070a12';
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.save();
+  if (clipToVideoFrame) {
+    ctx.beginPath();
+    ctx.rect(ytFrame.x, ytFrame.y, ytFrame.width, ytFrame.height);
+    ctx.clip();
+  }
 
   // 1. Fondo de papel antiguo con textura de fibra y viñeta cálida
   renderCinematicBackground(
@@ -110,10 +126,17 @@ export function renderInfiniteCanvasFrame(
     );
   }
   ctx.restore();
+  ctx.restore();
 
   // 4. Simulador de Pantalla de YouTube encima del canvas infinito (se omite al exportar MP4)
   if (!youtubeOptions.isExportRender) {
-    renderYouTubeScreenOverlay(ctx, width, height, ytFrame, youtubeOptions);
+    renderYouTubeScreenOverlay(
+      ctx,
+      width,
+      height,
+      ytFrame,
+      clipToVideoFrame ? { ...youtubeOptions, dimOutsideFrame: false } : youtubeOptions
+    );
   }
 
   ctx.restore();
@@ -219,13 +242,13 @@ function drawVintagePrintedPhotograph(
   // 3. Cinta adhesiva de papel kraft / masking tape pegada arriba de la foto
   drawKraftMaskingTape(ctx, 0, -halfH - 2, 118, 24, -0.035);
 
-  // 4. Epígrafe impreso estilo máquina de escribir en el margen inferior blanco de la foto
+  // 4. Epígrafe impreso estilo máquina de escribir en el margen inferior blanco de la foto (ajustado al ancho)
   if (node.label) {
     ctx.fillStyle = '#261c14';
     ctx.font = '700 15px "Courier New", "Georgia", serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.label, 0, halfH - padBottom / 2 - 1);
+    ctx.fillText(node.label, 0, halfH - padBottom / 2 - 1, Math.max(60, node.width - 32));
   }
 
   ctx.restore();
@@ -271,15 +294,16 @@ function drawVintagePatentSketchCard(
   ctx.fillText('• ARCHIVO HISTÓRICO / LÁMINA •', 0, -halfH + 28);
 
   ctx.globalAlpha = opacity;
+  const maxInnerTextW = Math.max(60, node.width - 44);
   if (node.type === 'badge') {
     ctx.fillStyle = inkColor;
     ctx.font = '800 20px "Georgia", serif';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.text || node.label, 0, -6);
+    ctx.fillText(node.text || node.label, 0, -6, maxInnerTextW);
 
     ctx.fillStyle = '#5c4732';
     ctx.font = '600 13px "Courier New", monospace';
-    ctx.fillText(node.label, 0, 24);
+    ctx.fillText(node.label, 0, 24, maxInnerTextW);
   } else {
     drawBuiltinVectorIcon(
       ctx,
@@ -292,7 +316,7 @@ function drawVintagePatentSketchCard(
       ctx.fillStyle = '#231911';
       ctx.font = '700 15px "Georgia", serif';
       ctx.textAlign = 'center';
-      ctx.fillText(node.label, 0, halfH - 26);
+      ctx.fillText(node.label, 0, halfH - 26, maxInnerTextW);
     }
   }
 
@@ -393,13 +417,14 @@ export function hitTestCanvasNode(
   for (let i = evaluatedNodes.length - 1; i >= 0; i--) {
     const item = evaluatedNodes[i];
     if (item.opacity <= 0.05) continue;
-    const halfW = (item.node.width * item.scale) / 2;
-    const halfH = (item.node.height * item.scale) / 2;
+    const ext = getNodeLocalExtents(item.node, true);
+    const sx = item.scale * (item.scaleX ?? 1);
+    const sy = item.scale * (item.scaleY ?? 1);
     if (
-      worldX >= item.x - halfW &&
-      worldX <= item.x + halfW &&
-      worldY >= item.y - halfH &&
-      worldY <= item.y + halfH
+      worldX >= item.x + ext.left * sx &&
+      worldX <= item.x + ext.right * sx &&
+      worldY >= item.y + ext.top * sy &&
+      worldY <= item.y + ext.bottom * sy
     ) {
       return item.node;
     }

@@ -15,6 +15,7 @@ import {
 } from './dsl/dslTypes';
 import { resolveSceneLayout } from './dsl/layoutResolver';
 import { projectAudioController } from './engine/audioController';
+import { isSceneLightPaper } from './engine/backgroundRenderer';
 import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
 import {
@@ -97,8 +98,20 @@ export const App: React.FC = () => {
   );
 
   const cameraState = useMemo(
-    () => evaluateCameraAtTime(activeProject.scene.cameraTrack, resolvedNodes, currentTime),
-    [activeProject.scene.cameraTrack, resolvedNodes, currentTime]
+    () =>
+      evaluateCameraAtTime(activeProject.scene.cameraTrack, resolvedNodes, currentTime, {
+        timeline: activeProject.scene.timeline,
+        evaluatedNodes,
+        aspectRatio: activeProject.scene.aspectRatio,
+        isLightPaper: isSceneLightPaper(activeProject.scene),
+        duration: activeProject.scene.duration
+      }),
+    [
+      activeProject.scene,
+      resolvedNodes,
+      evaluatedNodes,
+      currentTime
+    ]
   );
 
   const updateActiveProject = (updater: (current: VideoProjectBundle) => VideoProjectBundle) => {

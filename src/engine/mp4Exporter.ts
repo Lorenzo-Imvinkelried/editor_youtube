@@ -7,6 +7,7 @@
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import { DslScene } from '../dsl/dslTypes';
 import { resolveSceneLayout } from '../dsl/layoutResolver';
+import { isSceneLightPaper } from './backgroundRenderer';
 import { evaluateCameraAtTime } from './cameraEvaluator';
 import { renderInfiniteCanvasFrame } from './canvasRenderer';
 import { evaluateNodesAtTime } from './nodeEvaluator';
@@ -160,7 +161,13 @@ async function exportDeterministicWebCodecsMp4(params: DeterministicExportParams
 
     const timeSeconds = frameIndex / fps;
     const evaluatedNodes = evaluateNodesAtTime(resolvedNodes, scene.timeline, timeSeconds);
-    const camera = evaluateCameraAtTime(scene.cameraTrack, resolvedNodes, timeSeconds);
+    const camera = evaluateCameraAtTime(scene.cameraTrack, resolvedNodes, timeSeconds, {
+      timeline: scene.timeline,
+      evaluatedNodes,
+      aspectRatio: scene.aspectRatio,
+      isLightPaper: isSceneLightPaper(scene),
+      duration
+    });
 
     renderInfiniteCanvasFrame(
       ctx,
