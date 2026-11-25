@@ -34,6 +34,7 @@ export interface CameraEvaluationOptions {
   aspectRatio?: YouTubeAspectPreset;
   isLightPaper?: boolean;
   duration?: number;
+  autoFillFrame?: boolean;
 }
 
 // Caché en memoria de pistas de cámara ya auto-encuadradas por referencia de escena
@@ -42,6 +43,7 @@ let lastNodesRef: DslCanvasNode[] | null = null;
 let lastTimelineRef: DslTimelineAction[] | null = null;
 let lastAspect: YouTubeAspectPreset | null = null;
 let lastLight: boolean | null = null;
+let lastAutoFill: boolean | null = null;
 let cachedFramedTrack: DslCameraKeyframe[] = [];
 
 function getFramedTrackCached(
@@ -50,12 +52,14 @@ function getFramedTrackCached(
   timeline: DslTimelineAction[],
   ctx: FramingContext
 ): DslCameraKeyframe[] {
+  const autoFill = ctx.autoFillFrame !== false;
   if (
     cameraTrack === lastTrackRef &&
     nodes === lastNodesRef &&
     timeline === lastTimelineRef &&
     ctx.aspectRatio === lastAspect &&
-    ctx.isLightPaper === lastLight
+    ctx.isLightPaper === lastLight &&
+    autoFill === lastAutoFill
   ) {
     return cachedFramedTrack;
   }
@@ -66,6 +70,7 @@ function getFramedTrackCached(
   lastTimelineRef = timeline;
   lastAspect = ctx.aspectRatio;
   lastLight = ctx.isLightPaper;
+  lastAutoFill = autoFill;
   return cachedFramedTrack;
 }
 
@@ -94,7 +99,8 @@ export function evaluateCameraAtTime(
   const framedTrack = getFramedTrackCached(cameraTrack, nodes, timeline, {
     aspectRatio,
     isLightPaper,
-    duration
+    duration,
+    autoFillFrame: options?.autoFillFrame !== false
   });
 
   if (!framedTrack.length) {
@@ -107,8 +113,8 @@ export function evaluateCameraAtTime(
     const firstPos = resolveKeyframeTargetPosition(firstKf, nodeMap, 0, 0);
     state.x = firstPos.x;
     state.y = firstPos.y;
-    // Zoom inicial sutil hacia adentro (0.96 -> 1.0 del zoom seguro) sin salir nunca del borde
-    state.zoom = (firstKf.zoom ?? 1) * 0.96;
+    // Zoom inicial sutil hacia adentro (0.985 -> 1.0 del encuadre lleno) sin salir nunca del borde
+    state.zoom = (firstKf.zoom ?? 1) * 0.985;
     state.rotation = 0;
     state.activeTargetId = firstKf.targetId ?? firstPos.activeTargetId;
   }

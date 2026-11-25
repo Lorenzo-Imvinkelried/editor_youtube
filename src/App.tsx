@@ -109,7 +109,8 @@ export const App: React.FC = () => {
         evaluatedNodes,
         aspectRatio: activeProject.scene.aspectRatio,
         isLightPaper: isSceneLightPaper(activeProject.scene),
-        duration: activeProject.scene.duration
+        duration: activeProject.scene.duration,
+        autoFillFrame: activeProject.scene.autoFillFrame
       }),
     [
       activeProject.scene,

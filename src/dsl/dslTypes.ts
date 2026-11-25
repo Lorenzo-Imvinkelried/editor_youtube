@@ -196,6 +196,8 @@ export interface DslScene {
   showGrid?: boolean;
   /** Activa separación automática anti-solapamiento entre textos e imágenes (por defecto true) */
   autoAvoidOverlap?: boolean;
+  /** Escala automáticamente el zoom de cada toma para llenar la pantalla sin desbordar (por defecto true) */
+  autoFillFrame?: boolean;
   gridColor: string;
   audioTrack?: DslAudioTrack;
   /** Marcadores de capítulos opcionales para navegación rápida en videos largos */

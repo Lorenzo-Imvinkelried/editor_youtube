@@ -30,6 +30,7 @@ El editor utiliza un lenguaje declarativo JSON diseñado específicamente para s
      - \`"pill-badge"\` (Cápsula redondeada)
    - \`relativeTo\`: \`{ targetId, direction: "rightOf" | "leftOf" | "above" | "below", gap, align?: "anchor" | "keepAxis" }\` (resuelto con cajas reales medidas para evitar solapamientos).
    - \`autoAvoidOverlap\`: \`true\` por defecto en la raíz de la escena (el motor separa automáticamente cualquier texto que invada una imagen).
+   - \`autoFillFrame\`: \`true\` por defecto en la raíz de la escena (auto-zoom inteligente que llena la pantalla 16:9 o 9:16 sin desbordar jamás el borde).
 
 3. **Acciones de Línea de Tiempo (\`timeline[]\`)**:
    - \`popIn\`: Efecto Pop-Up con física de resorte (\`easing: "springBouncy"\`).

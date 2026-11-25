@@ -18,11 +18,14 @@ export interface FramingContext {
   aspectRatio: YouTubeAspectPreset;
   isLightPaper: boolean;
   duration: number;
+  /** Cuando es true (por defecto), acerca la cámara hasta llenar la pantalla sin pasarse del borde */
+  autoFillFrame?: boolean;
 }
 
-const SAFE_MARGIN_X = 68;
-const SAFE_MARGIN_TOP = 62;
-const SAFE_MARGIN_BOTTOM = 74; // Deja aire extra sobre la barra inferior de YouTube
+const SAFE_MARGIN_X = 24;
+const SAFE_MARGIN_TOP = 20;
+const SAFE_MARGIN_BOTTOM = 26;
+const MAX_SMART_FILL_ZOOM = 2.45;
 
 const CLUSTER_RADIUS_X = 980;
 const CLUSTER_RADIUS_Y = 660;
@@ -143,44 +146,92 @@ export function autoFrameCameraKeyframes(
       return kf;
     }
 
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    let maxAbsZ = 0;
-
-    for (const node of clusterNodes) {
-      const acts = actionsByNode.get(node.id) ?? [];
-      const b = computeNodeWorldBoundsInWindow(
+    const nodeBoundsList = clusterNodes.map((node) => ({
+      node,
+      bounds: computeNodeWorldBoundsInWindow(
         node,
-        acts,
+        actionsByNode.get(node.id) ?? [],
         windowStart,
         windowEnd,
         context.isLightPaper
-      );
-      if (b.minX < minX) minX = b.minX;
-      if (b.maxX > maxX) maxX = b.maxX;
-      if (b.minY < minY) minY = b.minY;
-      if (b.maxY > maxY) maxY = b.maxY;
-      if (Math.abs(node.z) > maxAbsZ) maxAbsZ = Math.abs(node.z);
+      )
+    }));
+
+    let roughMinX = Infinity;
+    let roughMaxX = -Infinity;
+    let roughMinY = Infinity;
+    let roughMaxY = -Infinity;
+    for (const { bounds: b } of nodeBoundsList) {
+      if (b.minX < roughMinX) roughMinX = b.minX;
+      if (b.maxX > roughMaxX) roughMaxX = b.maxX;
+      if (b.minY < roughMinY) roughMinY = b.minY;
+      if (b.maxY > roughMaxY) roughMaxY = b.maxY;
     }
 
-    // Compensar desplazamiento máximo de paralaje (1 + |z| * 0.1) y rotación de cámara
-    const parallaxScale = 1 + maxAbsZ * 0.11;
-    const rawSpanW = Math.max(120, (maxX - minX) * parallaxScale);
-    const rawSpanH = Math.max(100, (maxY - minY) * parallaxScale);
+    // Proyección exacta de esquinas en espacio de cámara (paralaje propio de cada nodo + rotación real)
+    let centerX = (roughMinX + roughMaxX) * 0.5;
+    let centerY = (roughMinY + roughMaxY) * 0.5;
+    const camRotRad = degToRad(-(kf.rotation ?? 0));
+    const cos = Math.cos(camRotRad);
+    const sin = Math.sin(camRotRad);
+    const invCos = Math.cos(-camRotRad);
+    const invSin = Math.sin(-camRotRad);
 
-    const rotRad = degToRad(Math.abs(kf.rotation ?? 0));
-    const cos = Math.cos(rotRad);
-    const sin = Math.sin(rotRad);
-    const rotatedSpanW = rawSpanW * cos + rawSpanH * sin;
-    const rotatedSpanH = rawSpanW * sin + rawSpanH * cos;
+    let minCamX = Infinity;
+    let maxCamX = -Infinity;
+    let minCamY = Infinity;
+    let maxCamY = -Infinity;
 
-    const maxSafeZoom = Math.min(safeW / rotatedSpanW, safeH / rotatedSpanH);
-    const fittedZoom = clamp(Math.min(requestedZoom, maxSafeZoom), 0.005, 2.5);
+    // Dos iteraciones convergen el centro óptico exacto considerando el desplazamiento de paralaje por nodo
+    for (let iter = 0; iter < 2; iter++) {
+      minCamX = Infinity;
+      maxCamX = -Infinity;
+      minCamY = Infinity;
+      maxCamY = -Infinity;
 
-    const centerX = (minX + maxX) * 0.5;
-    const centerY = (minY + maxY) * 0.5 + opticalBiasY / fittedZoom;
+      for (const { node, bounds: b } of nodeBoundsList) {
+        const parallax = node.z * 0.1;
+        const shiftX = (node.x - centerX) * parallax;
+        const shiftY = (node.y - centerY) * parallax;
+
+        const corners: Array<[number, number]> = [
+          [b.minX + shiftX - centerX, b.minY + shiftY - centerY],
+          [b.maxX + shiftX - centerX, b.minY + shiftY - centerY],
+          [b.maxX + shiftX - centerX, b.maxY + shiftY - centerY],
+          [b.minX + shiftX - centerX, b.maxY + shiftY - centerY]
+        ];
+
+        for (const [wx, wy] of corners) {
+          const rx = wx * cos - wy * sin;
+          const ry = wx * sin + wy * cos;
+          if (rx < minCamX) minCamX = rx;
+          if (rx > maxCamX) maxCamX = rx;
+          if (ry < minCamY) minCamY = ry;
+          if (ry > maxCamY) maxCamY = ry;
+        }
+      }
+
+      const midCamX = (minCamX + maxCamX) * 0.5;
+      const midCamY = (minCamY + maxCamY) * 0.5;
+      centerX += midCamX * invCos - midCamY * invSin;
+      centerY += midCamX * invSin + midCamY * invCos;
+    }
+
+    const exactSpanW = Math.max(80, maxCamX - minCamX);
+    const exactSpanH = Math.max(80, maxCamY - minCamY);
+
+    // Zoom máximo seguro que llena la pantalla de YouTube hasta el margen mínimo sin pasarse jamás
+    const maxSafeZoom = Math.min(safeW / exactSpanW, safeH / exactSpanH);
+    const shouldAutoFill = context.autoFillFrame !== false && !isOverviewShot;
+    const targetZoom = shouldAutoFill
+      ? Math.min(maxSafeZoom, MAX_SMART_FILL_ZOOM)
+      : Math.min(requestedZoom, maxSafeZoom);
+    const fittedZoom = clamp(targetZoom, 0.005, 2.5);
+
+    // Pequeño ajuste vertical en espacio de cámara para centrar entre margen superior e inferior
+    const biasCamY = opticalBiasY / fittedZoom;
+    centerX += -biasCamY * invSin;
+    centerY += biasCamY * invCos;
 
     prevX = centerX;
     prevY = centerY;
@@ -215,9 +266,9 @@ export function guardFrameBounds(
   }
 
   const { width: logicalW, height: logicalH } = getLogicalViewportSize(aspectRatio);
-  const padX = 36;
-  const padTop = 34;
-  const padBottom = 42;
+  const padX = 16;
+  const padTop = 14;
+  const padBottom = 18;
   const safeW = logicalW - padX * 2;
   const safeH = logicalH - padTop - padBottom;
 

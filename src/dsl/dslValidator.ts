@@ -51,6 +51,7 @@ export function validateAndParseDsl(rawJson: string): DslValidationResult {
       backgroundSecondary: parsed.backgroundSecondary || '#d7c6a9',
       showGrid: Boolean(parsed.showGrid),
       autoAvoidOverlap: parsed.autoAvoidOverlap !== false,
+      autoFillFrame: parsed.autoFillFrame !== false,
       gridColor: parsed.gridColor || '#cbbba0',
       audioTrack: parsed.audioTrack,
       chapters: chapters && chapters.length > 0 ? chapters : undefined,

@@ -40,8 +40,8 @@ export function computeYouTubeFrameRect(
   fullBleed = false
 ): ComputedYouTubeFrameRect {
   const targetRatio = aspectRatio === '9:16' ? 9 / 16 : 16 / 9;
-  const padX = fullBleed ? 0 : 44;
-  const padY = fullBleed ? 0 : 44;
+  const padX = fullBleed ? 0 : 18;
+  const padY = fullBleed ? 0 : 32;
 
   const availW = Math.max(240, viewportWidth - padX * 2);
   const availH = Math.max(180, viewportHeight - padY * 2);

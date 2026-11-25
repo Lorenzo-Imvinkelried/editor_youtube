@@ -167,7 +167,8 @@ async function exportDeterministicWebCodecsMp4(params: DeterministicExportParams
       evaluatedNodes,
       aspectRatio: scene.aspectRatio,
       isLightPaper: isSceneLightPaper(scene),
-      duration
+      duration,
+      autoFillFrame: scene.autoFillFrame
     });
 
     renderInfiniteCanvasFrame(
