@@ -36,19 +36,28 @@ Usá colores de tinta clásica para la propiedad \`color\` de los nodos:
 - \`"highlight-box"\`: Tira de papel ocre resaltada.
 - \`"3d-pop"\`: Titular de prensa antigua con doble filete inferior.
 
-### 4. VARIEDAD DE ANIMACIONES (\`timeline\`)
+### 4. LAYOUT INTELIGENTE ANTI-SOLAPAMIENTO (\`relativeTo\` + \`autoAvoidOverlap\`)
+- Poné \`"autoAvoidOverlap": true\` en la raíz de la escena para que el motor garantice separación real entre textos, cintas kraft y fotografías.
+- En lugar de adivinar coordenadas a ojo, anclá cada título y subtítulo a la fotografía de su escena con \`"relativeTo"\`:
+  - Título al costado derecho: \`"relativeTo": { "targetId": "foto-archivo-1", "direction": "rightOf", "gap": 54 }\` + \`"textAlign": "left"\`
+  - Título al costado izquierdo: \`"relativeTo": { "targetId": "foto-archivo-1", "direction": "leftOf", "gap": 54 }\` + \`"textAlign": "right"\` (o \`"center"\`)
+  - Título centrado arriba: \`"relativeTo": { "targetId": "foto-archivo-1", "direction": "above", "gap": 46 }\` + \`"textAlign": "center"\`
+  - Subtítulo narrativo centrado debajo: \`"relativeTo": { "targetId": "foto-archivo-1", "direction": "below", "gap": 44, "align": "keepAxis" }\` (conservando su \`x\` centrado en la escena).
+
+### 5. VARIEDAD DE ANIMACIONES (\`timeline\`)
 Alterná entre: \`"slideInLeft"\`, \`"slideInRight"\`, \`"slideInUp"\`, \`"slideInDown"\`, \`"flipIn3D"\`, \`"blurFadeIn"\`, \`"unfoldWidth"\`, \`"popIn"\`, \`"typewriter"\`, y movimientos suaves de papel como \`"float"\`, \`"pendulum"\`, \`"orbit"\` y \`"pulse"\`.
 
 ### EJEMPLO DE ESCENA JSON EN ARTE PAPEL:
 \`\`\`json
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "duration": 15,
   "aspectRatio": "16:9",
   "backgroundStyle": "vintage-paper",
   "background": "#f4ecdc",
   "backgroundSecondary": "#d7c6a9",
   "showGrid": false,
+  "autoAvoidOverlap": true,
   "gridColor": "#cbbba0",
   "nodes": [
     {
@@ -58,12 +67,12 @@ Alterná entre: \`"slideInLeft"\`, \`"slideInRight"\`, \`"slideInUp"\`, \`"slide
       "imageQuery": "Nikola Tesla",
       "icon": "portrait",
       "color": "#8b261d",
-      "x": -310,
-      "y": -45,
+      "x": -280,
+      "y": -35,
       "z": 0,
       "width": 520,
-      "height": 425,
-      "initialRotation": -1.8,
+      "height": 410,
+      "initialRotation": -1.6,
       "initialOpacity": 0,
       "initialScale": 0
     },
@@ -79,11 +88,12 @@ Alterná entre: \`"slideInLeft"\`, \`"slideInRight"\`, \`"slideInUp"\`, \`"slide
       "fontSize": 44,
       "color": "#8b261d",
       "accentColor": "#1e1610",
-      "x": 30,
-      "y": -55,
-      "z": 0.14,
-      "width": 600,
-      "height": 110,
+      "relativeTo": { "targetId": "foto-archivo-1", "direction": "rightOf", "gap": 54 },
+      "x": 45,
+      "y": -35,
+      "z": 0.1,
+      "width": 560,
+      "height": 116,
       "initialOpacity": 0,
       "initialScale": 0
     },
@@ -96,11 +106,12 @@ Alterná entre: \`"slideInLeft"\`, \`"slideInRight"\`, \`"slideInUp"\`, \`"slide
       "textVariant": "editorial-paper",
       "fontSize": 21,
       "color": "#8b261d",
+      "relativeTo": { "targetId": "foto-archivo-1", "direction": "below", "gap": 44, "align": "keepAxis" },
       "x": 0,
       "y": 250,
-      "z": 0.1,
+      "z": 0.08,
       "width": 900,
-      "height": 66,
+      "height": 74,
       "initialOpacity": 0,
       "initialScale": 0
     }

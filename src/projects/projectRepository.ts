@@ -35,16 +35,32 @@ export function loadAllIsolatedProjects(): VideoProjectBundle[] {
       return SEED_PROJECTS;
     }
 
-    // Incorporar automáticamente nuevos proyectos semilla del repositorio sin borrar los existentes
-    const loadedIds = new Set(loaded.map((p) => p.manifest.id));
+    // Incorporar nuevos proyectos semilla y actualizar semillas intactas cuando suben de dslVersion
+    const seedById = new Map(SEED_PROJECTS.map((s) => [s.manifest.id, s]));
+    let dirty = false;
+
+    const upgraded = loaded.map((existing) => {
+      const seed = seedById.get(existing.manifest.id);
+      if (
+        seed &&
+        existing.manifest.dslVersion !== seed.manifest.dslVersion &&
+        existing.chatHistory.length === seed.chatHistory.length
+      ) {
+        dirty = true;
+        return seed;
+      }
+      return existing;
+    });
+
+    const loadedIds = new Set(upgraded.map((p) => p.manifest.id));
     const missingSeeds = SEED_PROJECTS.filter((seed) => !loadedIds.has(seed.manifest.id));
-    if (missingSeeds.length > 0) {
-      const merged = [...missingSeeds, ...loaded];
+    if (missingSeeds.length > 0 || dirty) {
+      const merged = [...missingSeeds, ...upgraded];
       saveAllIsolatedProjects(merged);
       return merged;
     }
 
-    return loaded;
+    return upgraded;
   } catch {
     return SEED_PROJECTS;
   }

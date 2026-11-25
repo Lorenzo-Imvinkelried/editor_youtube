@@ -28,7 +28,8 @@ El editor utiliza un lenguaje declarativo JSON diseñado específicamente para s
      - \`"curved-arc"\` (Texto curvo en arco)
      - \`"outline-hollow"\` (Texto hueco con contorno)
      - \`"pill-badge"\` (Cápsula redondeada)
-   - \`relativeTo\`: \`{ targetId, direction: "rightOf" | "leftOf" | "above" | "below", gap }\`.
+   - \`relativeTo\`: \`{ targetId, direction: "rightOf" | "leftOf" | "above" | "below", gap, align?: "anchor" | "keepAxis" }\` (resuelto con cajas reales medidas para evitar solapamientos).
+   - \`autoAvoidOverlap\`: \`true\` por defecto en la raíz de la escena (el motor separa automáticamente cualquier texto que invada una imagen).
 
 3. **Acciones de Línea de Tiempo (\`timeline[]\`)**:
    - \`popIn\`: Efecto Pop-Up con física de resorte (\`easing: "springBouncy"\`).
