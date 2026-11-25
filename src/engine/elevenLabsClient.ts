@@ -1,18 +1,48 @@
 /**
- * Responsabilidad Única: Conectar con la API oficial de ElevenLabs Text-to-Speech
- * (`https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`), decodificar cada clip de voz
- * y ensamblar una pista maestra WAV de 44.1 kHz lista para reproducir y exportar a MP4.
+ * Responsabilidad Única: Conectar con la API oficial de ElevenLabs Text-to-Speech,
+ * proveer el catálogo de voces oficiales `premade` (100% habilitadas en cuentas gratuitas por API),
+ * decodificar cada clip de voz y ensamblar una pista maestra WAV de 44.1 kHz.
  */
 
-export const DEFAULT_ELEVENLABS_VOICE_ID = 'UK00oAtGYBrHBUbesfMv';
+// George (premade oficial de ElevenLabs): habilitada gratis por API y de tono cálido documental
+export const DEFAULT_ELEVENLABS_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
+
+export interface ElevenLabsVoiceOption {
+  id: string;
+  name: string;
+  role: string;
+  previewUrl?: string;
+}
+
+/**
+ * Voces oficiales "premade" de ElevenLabs que funcionan GRATIS vía API (sin error 402)
+ * y hablan español fluido al usar `eleven_flash_v2_5` o `eleven_multilingual_v2`.
+ */
+export const FREE_TIER_PREMADE_VOICES: ElevenLabsVoiceOption[] = [
+  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George', role: 'Narrador Documental Cálido (Recomendado)' },
+  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel', role: 'Locutor Firme / Historia y Ciencia' },
+  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian', role: 'Voz Profunda y Resonante' },
+  { id: 'pqHfZKP75CvOlQylNhV4', name: 'Bill', role: 'Sabio, Maduro y Clásico' },
+  { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam', role: 'Narrador Intenso y Dominante' },
+  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric', role: 'Suave, Claro y Confiable' },
+  { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam', role: 'Dinámico / Estilo YouTube' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', role: 'Relajado y Resonante' },
+  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', role: 'Narradora Profesional y Educativa' },
+  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice', role: 'Educadora Clara y Dinámica' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', role: 'Locutora Confiable Estilo TV' },
+  { id: 'hpp4J3VqNfWAUOO0d1Us', name: 'Bella', role: 'Cálida y Luminosa' }
+];
 
 const STORAGE_API_KEY = 'infinite_editor.elevenlabs.api_key';
 const STORAGE_VOICE_ID = 'infinite_editor.elevenlabs.voice_id';
 const STORAGE_MODEL_ID = 'infinite_editor.elevenlabs.model_id';
 
+// Voces comunitarias conocidas que devuelven 402 en cuentas gratuitas; se migran a George por defecto
+const BLOCKED_ON_FREE_LIBRARY_IDS = new Set(['UK00oAtGYBrHBUbesfMv']);
+
 export type ElevenLabsModelId =
-  | 'eleven_multilingual_v2'
   | 'eleven_flash_v2_5'
+  | 'eleven_multilingual_v2'
   | 'eleven_turbo_v2_5';
 
 export interface ElevenLabsConfig {
@@ -29,12 +59,18 @@ export interface SynthesizedClip {
 export function loadSavedElevenLabsConfig(): ElevenLabsConfig {
   const envKey = (import.meta as unknown as { env?: Record<string, string> }).env
     ?.VITE_ELEVENLABS_API_KEY;
+  const storedVoice = localStorage.getItem(STORAGE_VOICE_ID) || '';
+  const safeVoice =
+    !storedVoice || BLOCKED_ON_FREE_LIBRARY_IDS.has(storedVoice)
+      ? DEFAULT_ELEVENLABS_VOICE_ID
+      : storedVoice;
+
   return {
     apiKey: localStorage.getItem(STORAGE_API_KEY) || envKey || '',
-    voiceId: localStorage.getItem(STORAGE_VOICE_ID) || DEFAULT_ELEVENLABS_VOICE_ID,
+    voiceId: safeVoice,
     modelId:
       (localStorage.getItem(STORAGE_MODEL_ID) as ElevenLabsModelId) ||
-      'eleven_multilingual_v2'
+      'eleven_flash_v2_5'
   };
 }
 
@@ -45,6 +81,28 @@ export function saveElevenLabsConfig(config: ElevenLabsConfig): void {
     config.voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID
   );
   localStorage.setItem(STORAGE_MODEL_ID, config.modelId);
+}
+
+/**
+ * Consulta sin costo de créditos las URLs de muestra (`preview_url`) de las voces oficiales de ElevenLabs.
+ */
+export async function fetchFreePremadePreviewMap(): Promise<Record<string, string>> {
+  try {
+    const res = await fetch('https://api.elevenlabs.io/v1/voices');
+    if (!res.ok) return {};
+    const data = await res.json();
+    const map: Record<string, string> = {};
+    if (Array.isArray(data?.voices)) {
+      for (const v of data.voices) {
+        if (v?.voice_id && v?.preview_url) {
+          map[v.voice_id] = v.preview_url;
+        }
+      }
+    }
+    return map;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -60,7 +118,7 @@ export async function synthesizeElevenLabsSegment(
   const cleanVoice = config.voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID;
 
   if (!cleanKey) {
-    throw new Error('Ingresá tu API Key de ElevenLabs (xi-api-key) para generar la narración.');
+    throw new Error('Ingresá tu API Key secreta de ElevenLabs (empieza con sk_...) para generar la voz.');
   }
 
   const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
@@ -89,26 +147,38 @@ export async function synthesizeElevenLabsSegment(
 
   if (!response.ok) {
     let detail = '';
+    let code = '';
     try {
       const errJson = await response.json();
       detail = errJson?.detail?.message || errJson?.message || '';
+      code = errJson?.detail?.code || errJson?.detail?.status || '';
     } catch {
       // Ignorar si no es JSON
     }
 
+    if (code === 'api_key_id_used_as_api_key') {
+      throw new Error(
+        'Pegaste el "API Key ID" en lugar de la clave secreta real. En ElevenLabs → Developers → API Keys creá una nueva clave y copiá el texto secreto que empieza con "sk_...".'
+      );
+    }
     if (response.status === 401) {
       throw new Error(
-        `API Key de ElevenLabs inválida o sin permiso de Text-to-Speech. ${detail}`.trim()
+        `API Key inválida o sin permiso de Text-to-Speech (recordá que empieza con "sk_..."). ${detail}`.trim()
+      );
+    }
+    if (response.status === 402) {
+      throw new Error(
+        `ElevenLabs bloquea voces de la librería comunitaria (${cleanVoice}) en cuentas gratuitas (Error 402). Elegí arriba cualquiera de las 12 Voces Oficiales Gratis (George, Daniel, Brian, etc.) que funcionan sin pagar suscripción.`
       );
     }
     if (response.status === 404 || response.status === 400) {
       throw new Error(
-        `ElevenLabs no pudo usar el Voice ID "${cleanVoice}". Si es una voz pública de la librería, entrá a ElevenLabs → Voices, buscala y tocá "Add to My Voices". (${detail || response.status})`
+        `No se encontró el Voice ID "${cleanVoice}". Elegí una de las Voces Oficiales Gratis del selector. (${detail || response.status})`
       );
     }
     if (response.status === 429) {
       throw new Error(
-        `Límite de peticiones o cuota de caracteres alcanzado en ElevenLabs. ${detail}`.trim()
+        `Límite de peticiones o cuota de caracteres alcanzado en tu cuenta de ElevenLabs. ${detail}`.trim()
       );
     }
     throw new Error(
@@ -148,7 +218,6 @@ export function assembleClipsIntoMasterWavUrl(
     const offsetSec = Math.max(0, startOffsets[i] ?? 0);
     const startSample = Math.floor(offsetSec * sampleRate);
 
-    // Mezclar canal 0 (y canal 1 si es estéreo) remuestreando linealmente si difiere de 44100 Hz
     const ch0 = buf.getChannelData(0);
     const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
     const ratio = buf.sampleRate / sampleRate;
@@ -177,8 +246,8 @@ function encodeFloat32ToWavBlobUrl(samples: Float32Array, sampleRate: number): s
   writeAscii(view, 8, 'WAVE');
   writeAscii(view, 12, 'fmt ');
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // Mono nítido para voz
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * 2, true);
   view.setUint16(32, 2, true);
