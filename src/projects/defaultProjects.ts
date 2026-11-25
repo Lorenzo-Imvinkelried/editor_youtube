@@ -4,6 +4,9 @@
  */
 
 import { VideoProjectBundle, ProjectChatMessage, ProjectManifest } from './projectTypes';
+import teVerdeManifest from '../../projects/beneficios-te-verde-frio-10m/project.manifest.json';
+import teVerdeScene from '../../projects/beneficios-te-verde-frio-10m/scene.dsl.json';
+import teVerdeChat from '../../projects/beneficios-te-verde-frio-10m/chat.history.json';
 import teslaManifest from '../../projects/historia-nikola-tesla-10m/project.manifest.json';
 import teslaScene from '../../projects/historia-nikola-tesla-10m/scene.dsl.json';
 import teslaChat from '../../projects/historia-nikola-tesla-10m/chat.history.json';
@@ -16,6 +19,13 @@ import fintechChat from '../../projects/lanzamiento-startup-fintech/chat.history
 import { DslScene } from '../dsl/dslTypes';
 
 export const SEED_PROJECTS: VideoProjectBundle[] = [
+  {
+    directoryPath: 'projects/beneficios-te-verde-frio-10m/',
+    manifest: teVerdeManifest as ProjectManifest,
+    scene: teVerdeScene as unknown as DslScene,
+    chatHistory: teVerdeChat as ProjectChatMessage[],
+    assets: []
+  },
   {
     directoryPath: 'projects/historia-nikola-tesla-10m/',
     manifest: teslaManifest as ProjectManifest,

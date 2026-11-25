@@ -1,0 +1,20 @@
+{
+  "id": "beneficios-te-verde-frio-10m",
+  "name": "Juana La Sana — Beneficios del Té Verde Frío (10 Min)",
+  "description": "Video de 10 minutos (600s) para Juana La Sana en estética de cuaderno botánico: 10 capítulos y 80 escenas con base científica, receta cold brew paso a paso y guía práctica.",
+  "createdAt": "2026-11-25T19:45:00.000Z",
+  "updatedAt": "2026-11-25T19:45:00.000Z",
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "fps": 60,
+  "durationSeconds": 600,
+  "dslVersion": "1.5.0",
+  "paths": {
+    "scene": "scene.dsl.json",
+    "chatHistory": "chat.history.json",
+    "assetsDir": "assets/",
+    "exportsDir": "exports/"
+  }
+}

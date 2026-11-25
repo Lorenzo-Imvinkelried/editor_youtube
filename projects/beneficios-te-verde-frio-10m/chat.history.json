@@ -1,0 +1,21 @@
+[
+  {
+    "id": "msg-teverde-1",
+    "role": "user",
+    "timestamp": "2026-11-25T19:42:46.000Z",
+    "text": "Armemos un video de 10m sobre los beneficios del té verde frío para mi canal Juana La Sana, en tono cercano con base científica, estética de cuaderno botánico y español neutro."
+  },
+  {
+    "id": "msg-teverde-2",
+    "role": "assistant",
+    "timestamp": "2026-11-25T19:45:00.000Z",
+    "text": "Creé el proyecto aislado \"Juana La Sana — Beneficios del Té Verde Frío\" de 10 minutos exactos (600s), estructurado en 10 capítulos y 80 escenas (240 nodos y 320 animaciones) con paleta botánica sobre papel crema, fotografías verificadas de Wikimedia Commons, capítulos navegables en el timeline y guion listo para narración automática en ElevenLabs.",
+    "appliedOperations": [
+      "createProject:beneficios-te-verde-frio-10m",
+      "duration:600s(10:00)",
+      "chapters:10",
+      "scenes:80",
+      "nodes:240"
+    ]
+  }
+]

@@ -133,10 +133,11 @@ VITE_ELEVENLABS_API_KEY=sk_tu_clave_secreta
 
 ## Proyectos incluidos
 
-El repositorio incluye tres proyectos de ejemplo aislados en `projects/`:
+El repositorio incluye proyectos de ejemplo aislados en `projects/`:
 
 | Proyecto | Duración | Descripción |
 | --- | --- | --- |
+| `projects/beneficios-te-verde-frio-10m/` | 10 min (600s) | Video para **Juana La Sana** en estilo cuaderno botánico (10 capítulos y 80 escenas sobre té verde *cold brew*). |
 | `projects/historia-nikola-tesla-10m/` | 10 min (600s) | Documental completo en 10 capítulos y 80 escenas con imágenes históricas buscadas automáticamente. |
 | `projects/explicacion-ia-cerebro/` | 10s | Video explicativo estilo Kurzgesagt/Vox sobre redes neuronales en canvas 2.5D. |
 | `projects/lanzamiento-startup-fintech/` | 8s | Reel dinámico con recorridos rápidos de cámara, métricas y animaciones pop-up. |
