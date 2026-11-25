@@ -23,21 +23,22 @@ export function resolveSceneLayout(nodes: DslCanvasNode[]): DslCanvasNode[] {
       if (!anchor) continue;
 
       const gap = node.relativeTo.gap ?? 160;
+      const keepAxis = node.relativeTo.align === 'keepAxis';
       switch (node.relativeTo.direction) {
         case 'rightOf':
           node.x = anchor.x + anchor.width / 2 + gap + node.width / 2;
-          node.y = anchor.y;
+          if (!keepAxis) node.y = anchor.y;
           break;
         case 'leftOf':
           node.x = anchor.x - anchor.width / 2 - gap - node.width / 2;
-          node.y = anchor.y;
+          if (!keepAxis) node.y = anchor.y;
           break;
         case 'below':
-          node.x = anchor.x;
+          if (!keepAxis) node.x = anchor.x;
           node.y = anchor.y + anchor.height / 2 + gap + node.height / 2;
           break;
         case 'above':
-          node.x = anchor.x;
+          if (!keepAxis) node.x = anchor.x;
           node.y = anchor.y - anchor.height / 2 - gap - node.height / 2;
           break;
       }

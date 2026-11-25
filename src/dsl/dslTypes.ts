@@ -17,6 +17,8 @@ export interface RelativePlacement {
   targetId: string;
   direction: RelativeDirection;
   gap: number;
+  /** 'anchor' alinea el eje perpendicular al ancla; 'keepAxis' conserva x/y propio del nodo */
+  align?: 'anchor' | 'keepAxis';
 }
 
 export type CanvasNodeType = 'image' | 'svg' | 'text' | 'badge' | 'shape';
@@ -99,6 +101,8 @@ export interface DslCanvasNode {
   height: number;
   /** Posicionamiento semántico opcional para evitar que el LLM pise elementos */
   relativeTo?: RelativePlacement;
+  /** Si es true, permite superponer intencionalmente este nodo sin que el motor lo separe */
+  allowOverlap?: boolean;
   initialOpacity?: number;
   initialScale?: number;
   initialRotation?: number;
@@ -190,6 +194,8 @@ export interface DslScene {
   backgroundSecondary?: string;
   /** Mostrar líneas de grilla (por defecto false para estética limpia estilo Niels Bohr) */
   showGrid?: boolean;
+  /** Activa separación automática anti-solapamiento entre textos e imágenes (por defecto true) */
+  autoAvoidOverlap?: boolean;
   gridColor: string;
   audioTrack?: DslAudioTrack;
   /** Marcadores de capítulos opcionales para navegación rápida en videos largos */

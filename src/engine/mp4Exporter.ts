@@ -11,6 +11,7 @@ import { isSceneLightPaper } from './backgroundRenderer';
 import { evaluateCameraAtTime } from './cameraEvaluator';
 import { renderInfiniteCanvasFrame } from './canvasRenderer';
 import { evaluateNodesAtTime } from './nodeEvaluator';
+import { resolveSceneOverlaps } from './sceneOverlapSolver';
 
 export interface Mp4ExportProgress {
   percent: number;
@@ -40,7 +41,7 @@ export async function renderAndExportProjectToMp4(
     throw new Error('No se pudo inicializar el contexto gráfico 2D para exportar.');
   }
 
-  const resolvedNodes = resolveSceneLayout(scene.nodes);
+  const resolvedNodes = resolveSceneOverlaps(scene, resolveSceneLayout(scene.nodes));
 
   // Verificar soporte nativo de WebCodecs (Chrome / Edge / Brave) para renderizado offline 60 FPS exactos
   if (typeof VideoEncoder !== 'undefined') {

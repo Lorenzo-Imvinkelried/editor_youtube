@@ -18,6 +18,7 @@ import { projectAudioController } from './engine/audioController';
 import { isSceneLightPaper } from './engine/backgroundRenderer';
 import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
+import { resolveSceneOverlaps } from './engine/sceneOverlapSolver';
 import {
   createIsolatedProjectBundle,
   loadAllIsolatedProjects,
@@ -88,8 +89,12 @@ export const App: React.FC = () => {
   }, [activeProject.scene.audioTrack, isPlaying, isExportModalOpen, currentTime]);
 
   const resolvedNodes = useMemo(
-    () => resolveSceneLayout(activeProject.scene.nodes),
-    [activeProject.scene.nodes]
+    () =>
+      resolveSceneOverlaps(
+        activeProject.scene,
+        resolveSceneLayout(activeProject.scene.nodes)
+      ),
+    [activeProject.scene]
   );
 
   const evaluatedNodes = useMemo(

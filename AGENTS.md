@@ -47,6 +47,7 @@ EDITOR/
     │   ├── textLayout.ts                # Cálculo de cajas tipográficas y extensión real dibujada
     │   ├── textRenderer.ts              # Renderiza textos editoriales y sellos vintage dentro de su caja
     │   ├── nodeBounds.ts                # Calcula cajas envolventes (bounding boxes) con rotación y animaciones
+    │   ├── sceneOverlapSolver.ts        # Resuelve relativeTo exacto y elimina solapamientos entre texto e imagen
     │   ├── cameraAutoFramer.ts          # Encuadra y centra automáticamente cada toma dentro del margen seguro
     │   ├── cameraEvaluator.ts           # Calcula posición (x,y), zoom, rotación y parallax 2.5D
     │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG/texto en el segundo t
