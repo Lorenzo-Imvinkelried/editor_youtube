@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   ImagePlus,
+  Mic,
   MonitorPlay,
   Music,
   Palette,
@@ -23,6 +24,7 @@ import {
 import { BackgroundPresetStyle, YouTubeAspectPreset } from '../../dsl/dslTypes';
 import { BACKGROUND_PRESETS } from '../../engine/backgroundRenderer';
 import { VideoProjectBundle } from '../../projects/projectTypes';
+import { AudioModalTab } from '../audio-modal/AudioManagerModal';
 
 interface ProjectSwitcherHeaderProps {
   projects: VideoProjectBundle[];
@@ -34,7 +36,7 @@ interface ProjectSwitcherHeaderProps {
   onOpenPromptModal: (tab: 'copy-prompt' | 'paste-json') => void;
   onQuickAddImageByUrl: () => void;
   onQuickAddTextNode: () => void;
-  onOpenAudioModal: () => void;
+  onOpenAudioModal: (tab: AudioModalTab) => void;
   onOpenExportMp4Modal: () => void;
 }
 
@@ -58,7 +60,8 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
     activeProject.scene.aspectRatio === '9:16' ? '9:16' : '16:9';
   const bgStyle: BackgroundPresetStyle =
     activeProject.scene.backgroundStyle || 'vintage-paper';
-  const hasAudio = Boolean(activeProject.scene.audioTrack?.src);
+  const hasVoice = Boolean(activeProject.scene.audioTrack?.src);
+  const hasMusic = Boolean(activeProject.scene.musicTrack?.src);
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,12 +163,21 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         </button>
         <button
           type="button"
-          className={`btn-secondary ${hasAudio ? 'btn-audio-active' : ''}`}
-          onClick={onOpenAudioModal}
-          title="Narrar automáticamente con ElevenLabs o subir audio MP3/WAV"
+          className={`btn-secondary ${hasMusic ? 'btn-audio-active' : ''}`}
+          onClick={() => onOpenAudioModal('instrumental-music')}
+          title="Cargar canción instrumental (WAV/MP3/M4A/OGG/FLAC) con bucle inteligente y crossfade"
         >
           <Music size={14} />
-          {hasAudio ? 'Voz / Audio ON' : '🎙️ Narrar / Audio'}
+          {hasMusic ? 'Música ON' : 'Música'}
+        </button>
+        <button
+          type="button"
+          className={`btn-secondary ${hasVoice ? 'btn-audio-active' : ''}`}
+          onClick={() => onOpenAudioModal('elevenlabs')}
+          title="Narrar automáticamente con ElevenLabs o subir pista de voz"
+        >
+          <Mic size={14} />
+          {hasVoice ? 'Voz ON' : 'Voz'}
         </button>
 
         <button

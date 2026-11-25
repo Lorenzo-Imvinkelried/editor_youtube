@@ -864,3 +864,107 @@ body {
   color: var(--accent);
   padding-top: 2px;
 }
+
+.music-drop-row {
+  display: grid;
+  grid-template-columns: 1.75fr 1fr;
+  gap: 10px;
+}
+
+.music-drop-zone {
+  padding: 16px 14px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.music-drop-zone span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.music-drop-zone small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.music-drop-zone.dragging {
+  border-color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.music-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.music-settings-grid input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.music-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.narration-progress-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.music-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.music-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.music-stats-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.music-stats-pills span {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-muted);
+}
+
+.music-audition-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

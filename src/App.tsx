@@ -10,6 +10,7 @@ import {
   BackgroundPresetStyle,
   DslAudioTrack,
   DslCanvasNode,
+  DslMusicTrack,
   DslScene,
   YouTubeAspectPreset
 } from './dsl/dslTypes';
@@ -28,7 +29,7 @@ import {
 import { VideoProjectBundle } from './projects/projectTypes';
 import { createId } from './shared/id';
 import { AiMasterPromptModal } from './ui/ai-prompt-modal/AiMasterPromptModal';
-import { AudioManagerModal } from './ui/audio-modal/AudioManagerModal';
+import { AudioManagerModal, AudioModalTab } from './ui/audio-modal/AudioManagerModal';
 import { InfiniteCanvasViewport } from './ui/canvas-viewport/InfiniteCanvasViewport';
 import { Mp4ExportModal } from './ui/export-modal/Mp4ExportModal';
 import { InternetImageSearchModal } from './ui/image-search-modal/InternetImageSearchModal';
@@ -43,7 +44,7 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [promptModalTab, setPromptModalTab] = useState<'copy-prompt' | 'paste-json' | null>(null);
-  const [isAudioModalOpen, setIsAudioModalOpen] = useState<boolean>(false);
+  const [audioModalTab, setAudioModalTab] = useState<AudioModalTab | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isImageSearchModalOpen, setIsImageSearchModalOpen] = useState<boolean>(false);
 
@@ -79,14 +80,21 @@ export const App: React.FC = () => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isPlaying, activeProject]);
 
-  // Sincronizar pista de audio del proyecto activo con el reloj de reproducción
+  // Sincronizar pista de voz y pista de música instrumental del proyecto activo con el reloj
   useEffect(() => {
     projectAudioController.syncWithTimeline(
       activeProject.scene.audioTrack,
       isPlaying && !isExportModalOpen,
-      currentTime
+      currentTime,
+      activeProject.scene.musicTrack
     );
-  }, [activeProject.scene.audioTrack, isPlaying, isExportModalOpen, currentTime]);
+  }, [
+    activeProject.scene.audioTrack,
+    activeProject.scene.musicTrack,
+    isPlaying,
+    isExportModalOpen,
+    currentTime
+  ]);
 
   const resolvedNodes = useMemo(
     () =>
@@ -185,6 +193,20 @@ export const App: React.FC = () => {
       };
     });
     if (track) {
+      setCurrentTime(0);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleSaveMusicTrack = (musicTrack: DslMusicTrack | undefined) => {
+    updateActiveProject((proj) => ({
+      ...proj,
+      scene: {
+        ...proj.scene,
+        musicTrack
+      }
+    }));
+    if (musicTrack) {
       setCurrentTime(0);
       setIsPlaying(true);
     }
@@ -352,7 +374,7 @@ export const App: React.FC = () => {
         onOpenPromptModal={(tab) => setPromptModalTab(tab)}
         onQuickAddImageByUrl={handleQuickAddImageByUrl}
         onQuickAddTextNode={handleQuickAddTextNode}
-        onOpenAudioModal={() => setIsAudioModalOpen(true)}
+        onOpenAudioModal={(tab) => setAudioModalTab(tab)}
         onOpenExportMp4Modal={() => {
           setIsPlaying(false);
           setIsExportModalOpen(true);
@@ -402,12 +424,14 @@ export const App: React.FC = () => {
         />
       )}
 
-      {isAudioModalOpen && (
+      {audioModalTab && (
         <AudioManagerModal
           projectId={activeProject.manifest.id}
           scene={activeProject.scene}
+          initialTab={audioModalTab}
           onSaveAudioAndScene={handleSaveAudioAndScene}
-          onClose={() => setIsAudioModalOpen(false)}
+          onSaveMusicTrack={handleSaveMusicTrack}
+          onClose={() => setAudioModalTab(null)}
         />
       )}
 

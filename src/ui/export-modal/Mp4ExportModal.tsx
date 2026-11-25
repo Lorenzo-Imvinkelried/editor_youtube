@@ -78,9 +78,15 @@ export const Mp4ExportModal: React.FC<Mp4ExportModalProps> = ({
           <div className="export-specs-pills">
             <span className="spec-pill">📺 {resolutionLabel}</span>
             <span className="spec-pill">⚡ 60 FPS</span>
-            <span className="spec-pill">
-              🎵 {scene.audioTrack ? `Audio: ${scene.audioTrack.name}` : 'Sin Audio'}
-            </span>
+            {scene.musicTrack && (
+              <span className="spec-pill">🎵 Música: {scene.musicTrack.name}</span>
+            )}
+            {scene.audioTrack && (
+              <span className="spec-pill">🎙️ Voz: {scene.audioTrack.name}</span>
+            )}
+            {!scene.musicTrack && !scene.audioTrack && (
+              <span className="spec-pill">🔇 Sin Audio</span>
+            )}
           </div>
 
           {errorMsg ? (
