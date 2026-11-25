@@ -1,16 +1,18 @@
 /**
  * Responsabilidad Única: Interfaz para generar locución automática con ElevenLabs
- * usando el Voice ID `UK00oAtGYBrHBUbesfMv` (u otro elegido), permitiendo narrar
- * escena por escena sincronizando el timeline o narrar un guion libre.
+ * usando las voces oficiales gratuitas (`premade`, que no tiran error 402 en Plan Free)
+ * con botón para escuchar muestra sin gastar créditos, o usando un Voice ID personalizado.
  */
 
-import React, { useMemo, useRef, useState } from 'react';
-import { Check, Download, KeyRound, Loader2, Mic, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Download, KeyRound, Loader2, Mic, Sparkles, Volume2 } from 'lucide-react';
 import { DslAudioTrack, DslScene } from '../../dsl/dslTypes';
 import {
   assembleClipsIntoMasterWavUrl,
   DEFAULT_ELEVENLABS_VOICE_ID,
   ElevenLabsModelId,
+  fetchFreePremadePreviewMap,
+  FREE_TIER_PREMADE_VOICES,
   loadSavedElevenLabsConfig,
   saveElevenLabsConfig,
   synthesizeElevenLabsSegment,
@@ -39,8 +41,15 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
   const saved = useMemo(() => loadSavedElevenLabsConfig(), []);
   const allSegments = useMemo(() => extractSceneNarrationSegments(scene), [scene]);
 
+  const isSavedPreset = FREE_TIER_PREMADE_VOICES.some((v) => v.id === saved.voiceId);
+
   const [apiKey, setApiKey] = useState(saved.apiKey);
-  const [voiceId, setVoiceId] = useState(saved.voiceId || DEFAULT_ELEVENLABS_VOICE_ID);
+  const [selectedPresetVoice, setSelectedPresetVoice] = useState<string>(
+    isSavedPreset ? saved.voiceId : 'custom'
+  );
+  const [customVoiceId, setCustomVoiceId] = useState<string>(
+    isSavedPreset ? '' : saved.voiceId
+  );
   const [modelId, setModelId] = useState<ElevenLabsModelId>(saved.modelId);
   const [scope, setScope] = useState<NarrationScope>(() =>
     scene.duration > 90 ? 'first-minute' : 'full-video'
@@ -53,12 +62,27 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
       .join(' ')
   );
 
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [generatedWavUrl, setGeneratedWavUrl] = useState<string | null>(null);
   const [pendingScene, setPendingScene] = useState<DslScene | undefined>(undefined);
+
   const abortRef = useRef<AbortController | null>(null);
+  const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    fetchFreePremadePreviewMap().then(setPreviewUrls);
+    return () => {
+      sampleAudioRef.current?.pause();
+    };
+  }, []);
+
+  const effectiveVoiceId =
+    selectedPresetVoice === 'custom'
+      ? customVoiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID
+      : selectedPresetVoice;
 
   const activeSegments = useMemo(() => {
     if (scope === 'first-minute') {
@@ -72,17 +96,26 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
     return activeSegments.reduce((acc, s) => acc + s.text.length, 0);
   }, [scope, customScript, activeSegments]);
 
+  const handlePlayFreePreview = () => {
+    const url = previewUrls[effectiveVoiceId];
+    if (!url) return;
+    sampleAudioRef.current?.pause();
+    const audio = new Audio(url);
+    sampleAudioRef.current = audio;
+    audio.play().catch(() => {});
+  };
+
   const handleGenerate = async () => {
     setErrorMsg(null);
     const config = {
       apiKey: apiKey.trim(),
-      voiceId: voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID,
+      voiceId: effectiveVoiceId,
       modelId
     };
     saveElevenLabsConfig(config);
 
     if (!config.apiKey) {
-      setErrorMsg('Pegá tu API Key de ElevenLabs (xi-api-key) arriba para poder narrar.');
+      setErrorMsg('Pegá tu API Key secreta de ElevenLabs (empieza con sk_...) arriba.');
       return;
     }
 
@@ -170,10 +203,11 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
 
   const handleConfirmApply = () => {
     if (!generatedWavUrl) return;
+    const presetObj = FREE_TIER_PREMADE_VOICES.find((v) => v.id === effectiveVoiceId);
     onApplyNarration(
       {
         src: generatedWavUrl,
-        name: `Locución ElevenLabs (${voiceId.slice(0, 8)})`,
+        name: `Voz ElevenLabs (${presetObj ? presetObj.name : effectiveVoiceId.slice(0, 8)})`,
         volume: 0.95
       },
       pendingScene
@@ -183,41 +217,79 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
 
   return (
     <div className="eleven-tab-container">
-      <div className="inspector-grid-2">
-        <div className="inspector-col">
-          <label>
-            <KeyRound size={12} /> ElevenLabs API Key (se guarda solo en tu navegador)
-          </label>
-          <input
-            type="password"
-            placeholder="sk_..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-        </div>
+      <div className="inspector-col">
+        <label>
+          <KeyRound size={12} /> ElevenLabs API Key secreta (empieza con <code>sk_...</code>, guardada localmente)
+        </label>
+        <input
+          type="password"
+          placeholder="sk_..."
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+        />
+      </div>
 
-        <div className="inspector-col">
-          <label>
-            <Mic size={12} /> Voice ID (precargada libre)
-          </label>
-          <input
-            type="text"
-            placeholder={DEFAULT_ELEVENLABS_VOICE_ID}
-            value={voiceId}
-            onChange={(e) => setVoiceId(e.target.value)}
-          />
+      <div className="inspector-col">
+        <label>
+          <Mic size={12} /> Voz Oficial Habilitada en Plan Gratis (hablan español fluido con Flash/Multilingual)
+        </label>
+        <div className="topic-row">
+          <select
+            style={{
+              flex: 1,
+              background: 'var(--bg-dark)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-main)',
+              padding: '7px 10px',
+              borderRadius: 7,
+              fontSize: 12.5
+            }}
+            value={selectedPresetVoice}
+            onChange={(e) => setSelectedPresetVoice(e.target.value)}
+          >
+            {FREE_TIER_PREMADE_VOICES.map((v) => (
+              <option key={v.id} value={v.id}>
+                ✅ {v.name} — {v.role} (Gratis por API)
+              </option>
+            ))}
+            <option value="custom">🔒 Otro Voice ID personalizado (requiere plan pago en ElevenLabs)</option>
+          </select>
+
+          {previewUrls[effectiveVoiceId] && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handlePlayFreePreview}
+              title="Escuchar timbre de la voz gratis sin gastar créditos"
+            >
+              <Volume2 size={14} />
+              Oír Muestra
+            </button>
+          )}
         </div>
       </div>
 
+      {selectedPresetVoice === 'custom' && (
+        <div className="inspector-col">
+          <label>Voice ID Personalizado (Nota: ElevenLabs bloquea voces de librería en cuentas Free con error 402)</label>
+          <input
+            type="text"
+            placeholder="Pegá el Voice ID..."
+            value={customVoiceId}
+            onChange={(e) => setCustomVoiceId(e.target.value)}
+          />
+        </div>
+      )}
+
       <div className="inspector-grid-2">
         <div className="inspector-col">
-          <label>Modelo de Voz</label>
+          <label>Modelo Multilingüe (Español)</label>
           <select
             value={modelId}
             onChange={(e) => setModelId(e.target.value as ElevenLabsModelId)}
           >
-            <option value="eleven_flash_v2_5">Flash v2.5 (Rápido • 50% menos créditos)</option>
-            <option value="eleven_multilingual_v2">Multilingual v2 (Máximo realismo)</option>
+            <option value="eleven_flash_v2_5">Flash v2.5 (Rápido • Gasta 50% menos créditos)</option>
+            <option value="eleven_multilingual_v2">Multilingual v2 (Máximo realismo documental)</option>
             <option value="eleven_turbo_v2_5">Turbo v2.5 (Balanceado)</option>
           </select>
         </div>
@@ -244,7 +316,7 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
       {scope === 'custom-script' ? (
         <textarea
           className="prompt-preview-textarea"
-          style={{ minHeight: 96 }}
+          style={{ minHeight: 90 }}
           value={customScript}
           onChange={(e) => setCustomScript(e.target.value)}
           placeholder="Escribí acá el texto que querés que narre la voz..."
@@ -262,15 +334,15 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
             </span>
           </label>
           <div className="segments-mini-list">
-            {activeSegments.slice(0, 6).map((seg) => (
+            {activeSegments.slice(0, 5).map((seg) => (
               <div key={seg.index} className="segment-mini-item">
                 <code>#{seg.index + 1}</code>
                 <span>{seg.text}</span>
               </div>
             ))}
-            {activeSegments.length > 6 && (
+            {activeSegments.length > 5 && (
               <div className="segment-mini-more">
-                + {activeSegments.length - 6} escenas más listas para narrar...
+                + {activeSegments.length - 5} escenas más listas para narrar...
               </div>
             )}
           </div>
@@ -326,7 +398,7 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           ) : (
             <>
               <Sparkles size={15} />
-              Generar Voz con ElevenLabs
+              Generar Voz Gratis por API
             </>
           )}
         </button>
