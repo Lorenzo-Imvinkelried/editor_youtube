@@ -54,6 +54,7 @@ export function validateAndParseDsl(rawJson: string): DslValidationResult {
       autoFillFrame: parsed.autoFillFrame !== false,
       gridColor: parsed.gridColor || '#cbbba0',
       audioTrack: parsed.audioTrack,
+      musicTrack: parsed.musicTrack,
       chapters: chapters && chapters.length > 0 ? chapters : undefined,
       nodes: parsed.nodes,
       cameraTrack: parsed.cameraTrack,

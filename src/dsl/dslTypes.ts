@@ -175,6 +175,31 @@ export interface DslAudioTrack {
   volume: number;
 }
 
+export interface DslMusicTrack {
+  /** URL de la pista instrumental ya procesada en bucle inteligente (Blob URL / link) */
+  src: string;
+  /** Nombre legible de la canción instrumental */
+  name: string;
+  /** Volumen base de la música de fondo (0.0 a 1.0) */
+  volume: number;
+  /** Duración original de la canción en segundos */
+  sourceDuration?: number;
+  /** Segundos de crossfade igual-potencia en cada empalme inicio-fin */
+  crossfadeSeconds?: number;
+  /** Fade-in suave al inicio del video */
+  fadeInSeconds?: number;
+  /** Fade-out suave al final exacto del video */
+  fadeOutSeconds?: number;
+  /** Recortar silencios muertos al inicio y final antes de empalmar */
+  trimSilence?: boolean;
+  /** Cantidad de repeticiones calculadas para cubrir todo el video */
+  loopCount?: number;
+  /** Segundo donde ocurre el primer empalme (para audicionar rápido en el modal) */
+  firstSeamAtSeconds?: number;
+  /** Atenuar suavemente la música cuando existe narración activa */
+  duckUnderVoice?: boolean;
+}
+
 export interface DslChapterMarker {
   /** Etiqueta breve mostrada en la barra de saltos del timeline (ej. "C1: Cold Brew") */
   label: string;
@@ -200,6 +225,8 @@ export interface DslScene {
   autoFillFrame?: boolean;
   gridColor: string;
   audioTrack?: DslAudioTrack;
+  /** Pista independiente de música instrumental en bucle inteligente (se mezcla con la voz) */
+  musicTrack?: DslMusicTrack;
   /** Marcadores de capítulos opcionales para navegación rápida en videos largos */
   chapters?: DslChapterMarker[];
   nodes: DslCanvasNode[];

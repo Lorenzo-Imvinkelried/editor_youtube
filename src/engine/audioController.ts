@@ -1,39 +1,39 @@
 /**
- * Responsabilidad Única: Sincronizar la reproducción de la pista de audio del proyecto activo
- * con el reloj de la línea de tiempo (Play, Pause, Seek, Loop y Volumen), además de generar
- * una pista instrumental/sintetizada WAV en memoria si el usuario quiere probar audio con 1 click.
+ * Responsabilidad Única: Sincronizar la reproducción simultánea de las pistas del proyecto activo
+ * (Voz/Locución `audioTrack` + Música Instrumental en bucle `musicTrack`) con el reloj del timeline
+ * (Play, Pause, Seek, Loop, Volumen y atenuación suave bajo voz), además de proveer un sintetizador WAV.
  */
 
-import { DslAudioTrack } from '../dsl/dslTypes';
+import { DslAudioTrack, DslMusicTrack } from '../dsl/dslTypes';
 
-class ProjectAudioController {
+class SingleAudioChannel {
   private audioElement: HTMLAudioElement | null = null;
   private currentSrc: string | null = null;
 
-  public syncWithTimeline(
-    track: DslAudioTrack | undefined,
+  public sync(
+    src: string | undefined,
+    volume: number,
     isPlaying: boolean,
     currentTime: number
   ): void {
-    if (!track || !track.src) {
+    if (!src) {
       this.stopAndClear();
       return;
     }
 
-    if (this.currentSrc !== track.src || !this.audioElement) {
+    if (this.currentSrc !== src || !this.audioElement) {
       this.stopAndClear();
       const audio = new Audio();
       audio.crossOrigin = 'anonymous';
-      audio.src = track.src;
+      audio.src = src;
       audio.preload = 'auto';
       this.audioElement = audio;
-      this.currentSrc = track.src;
+      this.currentSrc = src;
     }
 
     const audio = this.audioElement;
-    audio.volume = Math.max(0, Math.min(1, track.volume ?? 0.85));
+    audio.volume = Math.max(0, Math.min(1, volume));
 
-    // Si la diferencia entre el reloj del editor y el audio supera 0.28s, re-sincronizar
     if (Math.abs(audio.currentTime - currentTime) > 0.28) {
       try {
         audio.currentTime = currentTime;
@@ -67,6 +67,47 @@ class ProjectAudioController {
       this.audioElement = null;
     }
     this.currentSrc = null;
+  }
+}
+
+class ProjectAudioController {
+  private voiceChannel = new SingleAudioChannel();
+  private musicChannel = new SingleAudioChannel();
+
+  public syncWithTimeline(
+    voiceTrack: DslAudioTrack | undefined,
+    isPlaying: boolean,
+    currentTime: number,
+    musicTrack?: DslMusicTrack
+  ): void {
+    const hasVoice = Boolean(voiceTrack?.src);
+    this.voiceChannel.sync(
+      voiceTrack?.src,
+      voiceTrack?.volume ?? 0.85,
+      isPlaying,
+      currentTime
+    );
+
+    const baseMusicVolume = musicTrack?.volume ?? 0.25;
+    const shouldDuck = hasVoice && musicTrack?.duckUnderVoice !== false;
+    const effectiveMusicVolume = shouldDuck ? baseMusicVolume * 0.55 : baseMusicVolume;
+
+    this.musicChannel.sync(
+      musicTrack?.src,
+      effectiveMusicVolume,
+      isPlaying,
+      currentTime
+    );
+  }
+
+  public forceSeek(timeSeconds: number): void {
+    this.voiceChannel.forceSeek(timeSeconds);
+    this.musicChannel.forceSeek(timeSeconds);
+  }
+
+  public stopAndClear(): void {
+    this.voiceChannel.stopAndClear();
+    this.musicChannel.stopAndClear();
   }
 }
 

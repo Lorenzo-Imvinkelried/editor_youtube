@@ -5,7 +5,7 @@
  */
 
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
-import { DslScene } from '../dsl/dslTypes';
+import { DslAudioTrack, DslMusicTrack, DslScene } from '../dsl/dslTypes';
 import { resolveSceneLayout } from '../dsl/layoutResolver';
 import { isSceneLightPaper } from './backgroundRenderer';
 import { evaluateCameraAtTime } from './cameraEvaluator';
@@ -98,17 +98,17 @@ async function exportDeterministicWebCodecsMp4(params: DeterministicExportParams
 
   // 1. Si hay pista de audio, decodificarla primero en memoria para muxearla con precisión exacta
   let decodedAudioBuffer: AudioBuffer | null = null;
-  if (scene.audioTrack?.src) {
+  if (scene.audioTrack?.src || scene.musicTrack?.src) {
     onProgress({
       percent: 0,
       currentTime: 0,
       duration,
-      statusText: 'Procesando pista de audio del proyecto...'
+      statusText: 'Mezclando pistas de audio y música instrumental del proyecto...'
     });
-    decodedAudioBuffer = await tryDecodeProjectAudio(
-      scene.audioTrack.src,
-      duration,
-      scene.audioTrack.volume ?? 0.85
+    decodedAudioBuffer = await renderProjectMasterAudioMix(
+      scene.audioTrack,
+      scene.musicTrack,
+      duration
     );
   }
 
@@ -244,35 +244,119 @@ function waitForQueueDrain(encoder: VideoEncoder): Promise<void> {
   });
 }
 
-async function tryDecodeProjectAudio(
-  audioUrl: string,
-  durationSeconds: number,
-  volume: number
+async function renderProjectMasterAudioMix(
+  voiceTrack: DslAudioTrack | undefined,
+  musicTrack: DslMusicTrack | undefined,
+  durationSeconds: number
 ): Promise<AudioBuffer | null> {
   try {
-    const response = await fetch(audioUrl);
-    const arrayBuffer = await response.arrayBuffer();
     const sampleRate = 44100;
-    const offlineCtx = new OfflineAudioContext(
-      2,
-      Math.ceil(durationSeconds * sampleRate),
-      sampleRate
-    );
-    const rawBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+    const totalFrames = Math.ceil(durationSeconds * sampleRate);
+    const offlineCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
 
-    const source = offlineCtx.createBufferSource();
-    source.buffer = rawBuffer;
+    const [voiceBuf, musicBuf] = await Promise.all([
+      voiceTrack?.src ? fetchAndDecodeAudio(offlineCtx, voiceTrack.src) : Promise.resolve(null),
+      musicTrack?.src ? fetchAndDecodeAudio(offlineCtx, musicTrack.src) : Promise.resolve(null)
+    ]);
 
-    const gainNode = offlineCtx.createGain();
-    gainNode.gain.value = Math.max(0, Math.min(1, volume));
+    if (!voiceBuf && !musicBuf) return null;
 
-    source.connect(gainNode);
-    gainNode.connect(offlineCtx.destination);
-    source.start(0);
+    // Compresor suave en el bus maestro para evitar saturación al sumar voz + música
+    const masterLimiter = offlineCtx.createDynamicsCompressor();
+    masterLimiter.threshold.value = -2;
+    masterLimiter.knee.value = 6;
+    masterLimiter.ratio.value = 6;
+    masterLimiter.attack.value = 0.005;
+    masterLimiter.release.value = 0.12;
+    masterLimiter.connect(offlineCtx.destination);
+
+    if (voiceBuf && voiceTrack) {
+      const voiceSource = offlineCtx.createBufferSource();
+      voiceSource.buffer = voiceBuf;
+      const voiceGain = offlineCtx.createGain();
+      voiceGain.gain.value = Math.max(0, Math.min(1, voiceTrack.volume ?? 0.85));
+      voiceSource.connect(voiceGain);
+      voiceGain.connect(masterLimiter);
+      voiceSource.start(0);
+    }
+
+    if (musicBuf && musicTrack) {
+      const musicSource = offlineCtx.createBufferSource();
+      musicSource.buffer = musicBuf;
+      const musicGain = offlineCtx.createGain();
+      const baseVol = Math.max(0, Math.min(1, musicTrack.volume ?? 0.25));
+      musicGain.gain.setValueAtTime(baseVol, 0);
+
+      // Auto-ducking real por envolvente RMS de la voz cuando conviven voz y música
+      if (voiceBuf && musicTrack.duckUnderVoice !== false) {
+        applyVoiceSidechainDucking(musicGain.gain, voiceBuf, baseVol, durationSeconds);
+      }
+
+      musicSource.connect(musicGain);
+      musicGain.connect(masterLimiter);
+      musicSource.start(0);
+    }
 
     return await offlineCtx.startRendering();
   } catch {
     return null;
+  }
+}
+
+async function fetchAndDecodeAudio(
+  ctx: BaseAudioContext,
+  audioUrl: string
+): Promise<AudioBuffer | null> {
+  try {
+    const response = await fetch(audioUrl);
+    if (!response.ok) return null;
+    const arrayBuffer = await response.arrayBuffer();
+    return await ctx.decodeAudioData(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+function applyVoiceSidechainDucking(
+  gainParam: AudioParam,
+  voiceBuf: AudioBuffer,
+  baseVolume: number,
+  durationSeconds: number
+): void {
+  const sr = voiceBuf.sampleRate;
+  const ch = voiceBuf.getChannelData(0);
+  const stepSec = 0.1; // Evaluación cada 100 ms para envolvente suave
+  const stepSamples = Math.max(1, Math.floor(stepSec * sr));
+  const duckedVolume = baseVolume * 0.42;
+  let currentlyDucked = false;
+
+  for (let t = 0; t < durationSeconds; t += stepSec) {
+    const start = Math.floor(t * sr);
+    if (start >= ch.length) {
+      if (currentlyDucked) {
+        gainParam.linearRampToValueAtTime(baseVolume, Math.min(durationSeconds, t + 0.45));
+        currentlyDucked = false;
+      }
+      break;
+    }
+
+    const end = Math.min(ch.length, start + stepSamples);
+    let sumSq = 0;
+    for (let i = start; i < end; i++) {
+      sumSq += ch[i] * ch[i];
+    }
+    const rms = Math.sqrt(sumSq / Math.max(1, end - start));
+    const voiceActive = rms > 0.015;
+
+    if (voiceActive && !currentlyDucked) {
+      gainParam.setValueAtTime(baseVolume, Math.max(0, t - 0.02));
+      gainParam.linearRampToValueAtTime(duckedVolume, Math.min(durationSeconds, t + 0.08));
+      currentlyDucked = true;
+    } else if (!voiceActive && currentlyDucked) {
+      gainParam.setValueAtTime(duckedVolume, t);
+      gainParam.linearRampToValueAtTime(baseVolume, Math.min(durationSeconds, t + 0.45));
+      currentlyDucked = false;
+    }
   }
 }
 

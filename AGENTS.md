@@ -54,7 +54,8 @@ EDITOR/
     │   ├── backgroundRenderer.ts        # Fondos de papel antiguo con grano procedural y viñeta
     │   ├── imageCache.ts                # Carga asíncrona y caché CORS-safe de imágenes externas
     │   ├── internetImageSearch.ts       # Búsqueda de imágenes en Wikipedia/Wikimedia y proxy CORS
-    │   ├── audioController.ts           # Sincronización de pista de audio con el reloj del timeline
+    │   ├── audioController.ts           # Sincronización multipista (voz + música) con el reloj del timeline
+    │   ├── musicLoopBuilder.ts          # Motor DSP de bucle instrumental inteligente (trim, crossfade, fades)
     │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
     │   ├── narrationExtractor.ts        # Extrae guion por escena y re-sincroniza tiempos a la voz real
     │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs, catálogo premade y pista maestra WAV
