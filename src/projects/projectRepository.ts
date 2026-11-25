@@ -35,6 +35,15 @@ export function loadAllIsolatedProjects(): VideoProjectBundle[] {
       return SEED_PROJECTS;
     }
 
+    // Incorporar automáticamente nuevos proyectos semilla del repositorio sin borrar los existentes
+    const loadedIds = new Set(loaded.map((p) => p.manifest.id));
+    const missingSeeds = SEED_PROJECTS.filter((seed) => !loadedIds.has(seed.manifest.id));
+    if (missingSeeds.length > 0) {
+      const merged = [...missingSeeds, ...loaded];
+      saveAllIsolatedProjects(merged);
+      return merged;
+    }
+
     return loaded;
   } catch {
     return SEED_PROJECTS;

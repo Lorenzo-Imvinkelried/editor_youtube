@@ -202,6 +202,13 @@ export function retimeSceneToSpokenDurations(
     at: mapTimestamp(kf.at)
   }));
 
+  if (cloned.chapters && cloned.chapters.length > 0) {
+    cloned.chapters = cloned.chapters.map((ch) => ({
+      ...ch,
+      time: mapTimestamp(ch.time)
+    }));
+  }
+
   cloned.timeline = cloned.timeline.map((act) => {
     const newAt = mapTimestamp(act.at);
     const matchedWindow = windows.find(

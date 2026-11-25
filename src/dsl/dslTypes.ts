@@ -171,6 +171,13 @@ export interface DslAudioTrack {
   volume: number;
 }
 
+export interface DslChapterMarker {
+  /** Etiqueta breve mostrada en la barra de saltos del timeline (ej. "C1: Cold Brew") */
+  label: string;
+  /** Segundo exacto donde inicia el capítulo */
+  time: number;
+}
+
 export interface DslScene {
   version: string;
   duration: number;
@@ -185,6 +192,8 @@ export interface DslScene {
   showGrid?: boolean;
   gridColor: string;
   audioTrack?: DslAudioTrack;
+  /** Marcadores de capítulos opcionales para navegación rápida en videos largos */
+  chapters?: DslChapterMarker[];
   nodes: DslCanvasNode[];
   cameraTrack: DslCameraKeyframe[];
   timeline: DslTimelineAction[];

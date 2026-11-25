@@ -30,6 +30,18 @@ export function validateAndParseDsl(rawJson: string): DslValidationResult {
 
     const duration = typeof parsed.duration === 'number' && parsed.duration > 0 ? parsed.duration : 10;
 
+    const chapters = Array.isArray(parsed.chapters)
+      ? parsed.chapters.filter(
+          (ch): ch is { label: string; time: number } =>
+            Boolean(ch) &&
+            typeof ch.label === 'string' &&
+            ch.label.trim().length > 0 &&
+            typeof ch.time === 'number' &&
+            Number.isFinite(ch.time) &&
+            ch.time >= 0
+        )
+      : undefined;
+
     const scene: DslScene = {
       version: parsed.version || '1.5.0',
       duration,
@@ -40,6 +52,7 @@ export function validateAndParseDsl(rawJson: string): DslValidationResult {
       showGrid: Boolean(parsed.showGrid),
       gridColor: parsed.gridColor || '#cbbba0',
       audioTrack: parsed.audioTrack,
+      chapters: chapters && chapters.length > 0 ? chapters : undefined,
       nodes: parsed.nodes,
       cameraTrack: parsed.cameraTrack,
       timeline: parsed.timeline

@@ -3,9 +3,9 @@
  * saltos rápidos por capítulo para documentales largos (10 min) y barra rápida de prompt.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Play, Pause, RotateCcw, Send, Wand2 } from 'lucide-react';
-import { DslScene } from '../../dsl/dslTypes';
+import { DslChapterMarker, DslScene } from '../../dsl/dslTypes';
 import { formatTimeMmSs } from '../../shared/math';
 
 interface TimelinePanelProps {
@@ -17,7 +17,7 @@ interface TimelinePanelProps {
   onSendQuickPrompt: (promptText: string) => void;
 }
 
-const TEN_MIN_CHAPTER_JUMPS = [
+const LEGACY_TESLA_CHAPTERS: DslChapterMarker[] = [
   { label: 'C1: 1856', time: 0 },
   { label: 'C2: Budapest', time: 60 },
   { label: 'C3: Edison', time: 120 },
@@ -30,6 +30,25 @@ const TEN_MIN_CHAPTER_JUMPS = [
   { label: 'C10: Legado', time: 540 }
 ];
 
+function resolveSceneChapters(scene: DslScene, duration: number): DslChapterMarker[] {
+  if (scene.chapters && scene.chapters.length > 0) {
+    return [...scene.chapters].sort((a, b) => a.time - b.time);
+  }
+  if (duration < 300) return [];
+
+  const isLegacyTesla = scene.nodes.some(
+    (node) => node.id === 'c1-b1-titulo' && node.label === 'Nikola Tesla'
+  );
+  if (isLegacyTesla) return LEGACY_TESLA_CHAPTERS;
+
+  const step = Math.max(60, Math.round(duration / 10));
+  const generated: DslChapterMarker[] = [];
+  for (let t = 0, idx = 1; t < duration; t += step, idx++) {
+    generated.push({ label: `C${idx}: ${formatTimeMmSs(t)}`, time: t });
+  }
+  return generated;
+}
+
 export const TimelinePanel: React.FC<TimelinePanelProps> = ({
   scene,
   currentTime,
@@ -40,7 +59,7 @@ export const TimelinePanel: React.FC<TimelinePanelProps> = ({
 }) => {
   const [quickPrompt, setQuickPrompt] = useState('');
   const duration = Math.max(1, scene.duration);
-  const isLongDocumentary = duration >= 300;
+  const chapters = useMemo(() => resolveSceneChapters(scene, duration), [scene, duration]);
 
   const handlePromptSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,13 +84,14 @@ export const TimelinePanel: React.FC<TimelinePanelProps> = ({
       </div>
 
       <div className="scrubber-with-chapters">
-        {isLongDocumentary && (
+        {chapters.length > 0 && (
           <div className="chapters-jump-bar">
-            {TEN_MIN_CHAPTER_JUMPS.map((ch) => {
-              const isActive = currentTime >= ch.time && currentTime < ch.time + 60;
+            {chapters.map((ch, idx) => {
+              const nextTime = idx + 1 < chapters.length ? chapters[idx + 1].time : duration + 1;
+              const isActive = currentTime >= ch.time && currentTime < nextTime;
               return (
                 <button
-                  key={ch.label}
+                  key={`${ch.label}-${ch.time}`}
                   type="button"
                   className={`chapter-chip ${isActive ? 'active' : ''}`}
                   onClick={() => onSeek(ch.time)}
