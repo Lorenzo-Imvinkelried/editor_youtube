@@ -42,6 +42,7 @@ EDITOR/
     │   └── dslReference.ts              # Especificación del lenguaje para el System Prompt del LLM
     ├── engine/                          # Motor determinista del Canvas Infinito (0% React)
     │   ├── easings.ts                   # Curvas cubic-bezier y físicas de resorte (spring pop-up)
+    │   ├── svgIcons.ts                  # Íconos vectoriales nativos dibujados en Canvas 2D
     │   ├── textMeasure.ts               # Medición y salto de línea automático para ajuste de textos
     │   ├── textLayout.ts                # Cálculo de cajas tipográficas y extensión real dibujada
     │   ├── textRenderer.ts              # Renderiza textos editoriales y sellos vintage dentro de su caja
@@ -50,22 +51,30 @@ EDITOR/
     │   ├── cameraEvaluator.ts           # Calcula posición (x,y), zoom, rotación y parallax 2.5D
     │   ├── nodeEvaluator.ts             # Calcula estado visual de cada imagen/SVG/texto en el segundo t
     │   ├── backgroundRenderer.ts        # Fondos de papel antiguo con grano procedural y viñeta
+    │   ├── imageCache.ts                # Carga asíncrona y caché CORS-safe de imágenes externas
+    │   ├── internetImageSearch.ts       # Búsqueda de imágenes en Wikipedia/Wikimedia y proxy CORS
+    │   ├── audioController.ts           # Sincronización de pista de audio con el reloj del timeline
     │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
     │   ├── narrationExtractor.ts        # Extrae guion por escena y re-sincroniza tiempos a la voz real
-    │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs y ensamblador de pista maestra WAV
+    │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs, catálogo premade y pista maestra WAV
     │   ├── mp4Exporter.ts               # Codificador determinista 60 FPS a MP4 con WebCodecs y audio
     │   └── canvasRenderer.ts            # Dibuja fotografías en papel, láminas de patente y recorte de cuadro
     ├── projects/                        # Gestión aislada de cada proyecto de video
     │   ├── projectTypes.ts              # Estructura de un paquete de proyecto aislado
     │   ├── defaultProjects.ts           # Proyectos semilla autocontenidos
-    │   └── projectStore.ts              # Repositorio de proyectos (aislamiento, exportación JSON/bundle)
+    │   └── projectRepository.ts         # Repositorio de proyectos (aislamiento, exportación JSON/bundle)
     ├── ai/                              # Cerebro de IA que traduce prompts al lenguaje DSL
     │   ├── systemPromptBuilder.ts       # Construye el contexto exacto del proyecto actual para el LLM
+    │   ├── masterPromptTemplate.ts      # Generador de Prompt Maestro para copiar/pegar en LLMs externos
     │   └── promptToDslEngine.ts         # Intérprete local + conector API LLM para editar la escena por chat
-    └── ui/                              # Interfaz profesional del editor dividida por panel
+    └── ui/                              # Interfaz profesional del editor dividida por panel y modal
         ├── project-switcher/            # Selector y creador de proyectos aislados
         ├── canvas-viewport/             # Visor interactivo del canvas cuasi infinito
         ├── ai-chat-panel/               # Chat de IA que modifica el DSL del proyecto activo
+        ├── ai-prompt-modal/             # Modal de Prompt Maestro e importación/exportación JSON
+        ├── audio-modal/                 # Gestor de pista de audio y narrador automático ElevenLabs
+        ├── export-modal/                # Modal de renderizado y descarga de video MP4 a 60 FPS
+        ├── image-search-modal/          # Buscador visual de imágenes de archivo en internet
         ├── dsl-code-panel/              # Editor en vivo del lenguaje interno (DSL)
         ├── timeline-panel/              # Línea de tiempo multipista y controles de reproducción
         └── inspector-panel/             # Propiedades del nodo seleccionado y carpeta de assets del proyecto
