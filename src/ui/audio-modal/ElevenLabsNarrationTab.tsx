@@ -13,6 +13,7 @@ import {
   ElevenLabsModelId,
   fetchFreePremadePreviewMap,
   FREE_TIER_PREMADE_VOICES,
+  isLikelyElevenLabsKeyId,
   loadSavedElevenLabsConfig,
   saveElevenLabsConfig,
   synthesizeElevenLabsSegment,
@@ -227,6 +228,11 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
+        {isLikelyElevenLabsKeyId(apiKey) && (
+          <div className="dsl-error-box" style={{ marginTop: 6 }}>
+            Eso parece un <strong>API Key ID</strong> (no empieza con <code>sk_</code>). En ElevenLabs → <strong>Developers → API Keys</strong> creá una clave nueva o tocá <strong>Rotate</strong> y copiá la clave secreta que empieza con <code>sk_...</code>.
+          </div>
+        )}
       </div>
 
       <div className="inspector-col">

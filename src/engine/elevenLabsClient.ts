@@ -105,6 +105,14 @@ export async function fetchFreePremadePreviewMap(): Promise<Record<string, strin
   }
 }
 
+export function isLikelyElevenLabsKeyId(rawKey: string): boolean {
+  const clean = rawKey.trim();
+  return clean.length >= 20 && !clean.startsWith('sk_');
+}
+
+const KEY_ID_HELP_MESSAGE =
+  'Pegaste el "API Key ID" (sin prefijo "sk_") en lugar de la clave secreta real. En ElevenLabs → Developers → API Keys tocá "Create API Key" (o el menú "..." → "Rotate" en tu clave actual) y copiá la clave secreta que empieza con "sk_..." apenas aparece.';
+
 /**
  * Sintetiza un fragmento de texto usando ElevenLabs y devuelve su `AudioBuffer` decodificado.
  */
@@ -119,6 +127,9 @@ export async function synthesizeElevenLabsSegment(
 
   if (!cleanKey) {
     throw new Error('Ingresá tu API Key secreta de ElevenLabs (empieza con sk_...) para generar la voz.');
+  }
+  if (isLikelyElevenLabsKeyId(cleanKey)) {
+    throw new Error(KEY_ID_HELP_MESSAGE);
   }
 
   const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
@@ -156,25 +167,37 @@ export async function synthesizeElevenLabsSegment(
       // Ignorar si no es JSON
     }
 
-    if (code === 'api_key_id_used_as_api_key') {
-      throw new Error(
-        'Pegaste el "API Key ID" en lugar de la clave secreta real. En ElevenLabs → Developers → API Keys creá una nueva clave y copiá el texto secreto que empieza con "sk_...".'
-      );
+    const detailLower = detail.toLowerCase();
+    const codeLower = String(code).toLowerCase();
+
+    if (
+      codeLower.includes('api_key_id') ||
+      detailLower.includes('api key id used as api key') ||
+      detailLower.includes("start with 'sk_'")
+    ) {
+      throw new Error(KEY_ID_HELP_MESSAGE);
     }
-    if (response.status === 401) {
+    if (
+      response.status === 401 ||
+      codeLower.includes('invalid_api_key') ||
+      detailLower.includes('api key')
+    ) {
       throw new Error(
-        `API Key inválida o sin permiso de Text-to-Speech (recordá que empieza con "sk_..."). ${detail}`.trim()
+        `API Key inválida o sin permiso de Text-to-Speech (recordá usar la clave secreta que empieza con "sk_..."). ${detail}`.trim()
       );
     }
     if (response.status === 402) {
       throw new Error(
-        `ElevenLabs bloquea voces de la librería comunitaria (${cleanVoice}) en cuentas gratuitas (Error 402). Elegí arriba cualquiera de las 12 Voces Oficiales Gratis (George, Daniel, Brian, etc.) que funcionan sin pagar suscripción.`
+        `ElevenLabs bloquea voces de la librería comunitaria (${cleanVoice}) en cuentas gratuitas (Error 402). Elegí arriba cualquiera de las 12 Voces Oficiales Gratis (George, Daniel, Brian, Matilda, etc.) que funcionan sin pagar suscripción.`
       );
     }
-    if (response.status === 404 || response.status === 400) {
+    if (response.status === 404 || (response.status === 400 && detailLower.includes('voice'))) {
       throw new Error(
         `No se encontró el Voice ID "${cleanVoice}". Elegí una de las Voces Oficiales Gratis del selector. (${detail || response.status})`
       );
+    }
+    if (response.status === 400) {
+      throw new Error(`Solicitud rechazada por ElevenLabs (400): ${detail || response.statusText}`);
     }
     if (response.status === 429) {
       throw new Error(
