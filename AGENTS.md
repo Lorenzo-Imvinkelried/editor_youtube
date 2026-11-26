@@ -55,6 +55,7 @@ EDITOR/
     │   ├── imageCache.ts                # Carga asíncrona y caché CORS-safe de imágenes externas
     │   ├── internetImageSearch.ts       # Búsqueda de imágenes en Wikipedia/Wikimedia y proxy CORS
     │   ├── audioController.ts           # Sincronización multipista (voz + música) con el reloj del timeline
+    │   ├── audioPersistenceStore.ts     # Persistencia local en IndexedDB para conservar voz y música tras F5
     │   ├── musicLoopBuilder.ts          # Motor DSP de bucle instrumental inteligente (trim, crossfade, fades)
     │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
     │   ├── narrationExtractor.ts        # Extrae guion por escena y re-sincroniza tiempos a la voz real
@@ -81,3 +82,8 @@ EDITOR/
         ├── timeline-panel/              # Línea de tiempo multipista y controles de reproducción
         └── inspector-panel/             # Propiedades del nodo seleccionado y carpeta de assets del proyecto
 ```
+
+## 4. Flujo Obligatorio al Crear Nuevos Proyectos de Video
+Antes de generar el `scene.dsl.json` de cualquier proyecto de video nuevo, el agente DEBE preguntar al usuario cómo quiere armar la **introducción** (además del tono, estética y variante de español):
+- Si desea incluir una **intro de presentación del canal/personaje** (ej. saludo, origen o sello personal del canal como *Juana La Sana*) o arrancar directo con el gancho del tema.
+- Qué orden y duración prefiere para los primeros segundos (ej. gancho del tema en `00:00–00:07` + presentación breve en `00:07–00:15`), asegurando que los nodos de intro usen prefijo `intro-*` y que el Capítulo 1 no repita el saludo.
