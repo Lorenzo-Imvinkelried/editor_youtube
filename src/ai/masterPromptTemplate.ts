@@ -25,9 +25,10 @@ Usá \`"showGrid": false\` y elegí uno de estos fondos de papel con textura org
 Usá colores de tinta clásica para la propiedad \`color\` de los nodos:
 - Rojo lacre: \`"#8b261d"\` | Azul de Prusia: \`"#1d3557"\` | Sepia cobre: \`"#7f4f24"\` | Verde imprenta: \`"#26463b"\` | Carbón: \`"#1e1610"\`.
 
-### 2. FOTOGRAFÍAS IMPRESAS GRANDES (\`type: "image"\`)
-- ¡Hacé las imágenes GRANDES y protagonistas! Usá tamaños entre \`"width": 520, "height": 420\` y \`"width": 600, "height": 440\`, con una leve rotación orgánica de papel (\`"initialRotation": -1.8\` o \`1.6\`).
-- Poné \`"imageQuery": "Nombre exacto del artículo en Wikipedia"\` (ej: \`"Nikola Tesla"\`, \`"Roman Colosseum"\`, \`"Albert Einstein"\`) para que el motor descargue automáticamente la foto histórica y la enmarque en papel fotográfico con cinta adhesiva kraft arriba.
+### 2. FOTOGRAFÍAS REALES DE CALIDAD (\`type: "image"\`) — CERO SVGs PERSONALIZADOS
+- **PROHIBIDO usar \`"type": "svg"\`, \`"type": "shape"\` o íconos vectoriales dibujados.** El 100% de los elementos visuales de todas las escenas deben ser \`"type": "image"\` con fotografías reales o láminas editoriales/históricas de alta calidad.
+- ¡Hacé las imágenes GRANDES y protagonistas! Usá tamaños entre \`"width": 520, "height": 410\` y \`"width": 600, "height": 440\`, con una leve rotación orgánica de papel (\`"initialRotation": -1.6\` o \`1.5\`).
+- Usá \`"imageQuery"\` con términos **precisos, descriptivos y sin ambigüedad** que correspondan exactamente a lo que se está narrando en esa escena (ej: \`"Camellia sinensis botanical illustration"\`, \`"Nikola Tesla portrait"\`, \`"Roman Colosseum architecture"\` — evitá palabras sueltas ambiguas que puedan traer fotos fuera de tema) o incluí un \`"src"\` directo verificado de Wikimedia Commons. Cada escena debe tener una imagen visualmente coherente con la frase hablada.
 
 ### 3. ESTILOS DE TEXTO EDITORIAL / PAPEL (\`textVariant\`)
 - \`"clean-subtitle"\`: Título en serif grande + línea divisoria + fecha mecanografiada en \`"subtitle"\`.

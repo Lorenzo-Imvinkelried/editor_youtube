@@ -5,7 +5,6 @@
  */
 
 import {
-  BuiltinSvgIcon,
   DslCanvasNode,
   DslScene,
   NodeActionType,
@@ -21,13 +20,18 @@ export interface PromptCompilationResult {
   appliedOperations: string[];
 }
 
-const ICON_KEYWORDS: Array<{ keywords: string[]; icon: BuiltinSvgIcon; color: string; defaultLabel: string }> = [
-  { keywords: ['cohete', 'rocket', 'despegue', 'lanzamiento'], icon: 'rocket', color: '#f97316', defaultLabel: 'Cohete IA' },
-  { keywords: ['cerebro', 'mente', 'neurona', 'ia', 'brain'], icon: 'brain', color: '#38bdf8', defaultLabel: 'Red Neuronal' },
-  { keywords: ['chip', 'cpu', 'procesador', 'motor', 'codigo'], icon: 'cpu', color: '#f59e0b', defaultLabel: 'Motor Core' },
-  { keywords: ['mundo', 'globo', 'mapa', 'planeta', 'global'], icon: 'globe', color: '#06b6d4', defaultLabel: 'Escala Global' },
-  { keywords: ['grafico', 'metricas', 'ventas', 'chart', 'subida'], icon: 'chart', color: '#10b981', defaultLabel: 'Métricas +250%' },
-  { keywords: ['estrella', 'brillo', 'magia', 'destello', 'idea'], icon: 'sparkles', color: '#ec4899', defaultLabel: 'Idea Clave' }
+const VISUAL_KEYWORDS: Array<{
+  keywords: string[];
+  imageQuery: string;
+  color: string;
+  defaultLabel: string;
+}> = [
+  { keywords: ['cohete', 'rocket', 'despegue', 'lanzamiento'], imageQuery: 'Saturn V rocket launch', color: '#9c4a2b', defaultLabel: 'Lanzamiento espacial' },
+  { keywords: ['cerebro', 'mente', 'neurona', 'ia', 'brain'], imageQuery: 'Human brain neural network illustration', color: '#2b5b6b', defaultLabel: 'Cerebro humano' },
+  { keywords: ['chip', 'cpu', 'procesador', 'motor', 'codigo'], imageQuery: 'Microprocessor silicon wafer', color: '#8a5a19', defaultLabel: 'Procesador moderno' },
+  { keywords: ['mundo', 'globo', 'mapa', 'planeta', 'global'], imageQuery: 'Earth from space Apollo', color: '#1f5c4a', defaultLabel: 'Planeta Tierra' },
+  { keywords: ['grafico', 'metricas', 'ventas', 'chart', 'subida'], imageQuery: 'Financial chart analytics', color: '#2d5a3c', defaultLabel: 'Crecimiento y métricas' },
+  { keywords: ['estrella', 'brillo', 'magia', 'destello', 'idea'], imageQuery: 'Light bulb vintage photography', color: '#8b261d', defaultLabel: 'Idea clave' }
 ];
 
 export function compileUserPromptToDsl(promptText: string, currentScene: DslScene): PromptCompilationResult {
@@ -285,30 +289,37 @@ export function compileUserPromptToDsl(promptText: string, currentScene: DslScen
     };
   }
 
-  // 4. Crear un nuevo nodo visual (SVG/Imagen) + posicionarlo relativamente + animar cámara y pop-up
-  const matchedVisual =
-    ICON_KEYWORDS.find((item) => item.keywords.some((kw) => lower.includes(kw))) || ICON_KEYWORDS[5];
+  // 4. Crear un nuevo nodo visual con fotografía real (`type: 'image'`, nunca SVG personalizado)
+  const matchedVisual = VISUAL_KEYWORDS.find((item) =>
+    item.keywords.some((kw) => lower.includes(kw))
+  );
 
-  const label = quotedMatch ? (quotedMatch[1] || quotedMatch[2]) : matchedVisual.defaultLabel;
+  const label = quotedMatch
+    ? quotedMatch[1] || quotedMatch[2]
+    : matchedVisual?.defaultLabel || promptText.trim().slice(0, 42);
+  const imageQuery = quotedMatch
+    ? quotedMatch[1] || quotedMatch[2]
+    : matchedVisual?.imageQuery || promptText.trim();
   const newNodeId = `${slugifyProjectId(label)}-${nextScene.nodes.length + 1}`;
 
   const newNode: DslCanvasNode = {
     id: newNodeId,
     label,
-    type: 'svg',
-    icon: matchedVisual.icon,
-    color: matchedVisual.color,
-    accentColor: '#ffffff',
-    x: anchorNode ? anchorNode.x + 420 : 0,
+    type: 'image',
+    imageQuery,
+    color: matchedVisual?.color || '#2d5a3c',
+    accentColor: '#1d1a14',
+    x: anchorNode ? anchorNode.x + 580 : 0,
     y: anchorNode ? anchorNode.y : 0,
-    z: Number(((Math.random() * 0.5) - 0.15).toFixed(2)),
-    width: 240,
-    height: 240,
+    z: 0,
+    width: 530,
+    height: 405,
+    initialRotation: -1.4,
     relativeTo: anchorNode
       ? {
           targetId: anchorNode.id,
           direction,
-          gap: 320
+          gap: 54
         }
       : undefined,
     initialOpacity: 0,

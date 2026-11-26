@@ -13,8 +13,8 @@ El editor utiliza un lenguaje declarativo JSON diseñado específicamente para s
    - \`"9:16"\`: Formato vertical para YouTube Shorts / Reels (1080x1920).
 
 2. **Nodos en el Canvas Infinito (\`nodes[]\`)**:
-   - \`id\`: Identificador único semántico (ej. \`"titulo-principal"\`, \`"cerebro-ia"\`).
-   - \`type\`: \`"text"\` | \`"svg"\` | \`"image"\` | \`"badge"\` | \`"shape"\`.
+   - \`id\`: Identificador único semántico (ej. \`"titulo-principal"\`, \`"foto-infusion"\`).
+   - \`type\`: Usar SIEMPRE \`"text"\` para textos y \`"image"\` (con \`src\` verificado o \`imageQuery\` preciso y coherente con lo narrado) para todos los elementos visuales. **NO generar nodos \`"svg"\` ni íconos vectoriales personalizados.**
    - \`fontFamily\` (para \`type: "text"\`):
      - \`"display"\` (Impact / Montserrat Black — titulares de YouTube)
      - \`"serif"\` (Georgia / Editorial — estilo ensayo)
