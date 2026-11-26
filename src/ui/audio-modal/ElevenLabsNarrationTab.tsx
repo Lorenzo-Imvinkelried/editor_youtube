@@ -77,7 +77,16 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
   const [selectedNodeIndices, setSelectedNodeIndices] = useState<Set<number>>(() =>
     computeDefaultSelectedNodeIndices(allSegments)
   );
-  const [combineMode, setCombineMode] = useState<ExistingVoiceCombineMode>('prepend-shift');
+  const defaultIntroEndSeconds = useMemo(() => {
+    const introSegs = allSegments.filter((s) =>
+      (s.subtitleNodeId || '').toLowerCase().startsWith('intro-')
+    );
+    if (introSegs.length > 0) return introSegs[introSegs.length - 1].endAt;
+    return 15;
+  }, [allSegments]);
+
+  const [combineMode, setCombineMode] = useState<ExistingVoiceCombineMode>('replace-ranges');
+  const [prependShiftSeconds, setPrependShiftSeconds] = useState<number>(defaultIntroEndSeconds);
   const [autoSyncTimeline, setAutoSyncTimeline] = useState(false);
   const [customScript, setCustomScript] = useState(() =>
     allSegments
@@ -238,7 +247,7 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           const isStandaloneSubset =
             scope === 'selected-nodes' && (!existingVoiceBuffer || combineMode === 'standalone');
           const fixedOffsets = activeSegments.map((s) => s.startAt + 0.3);
-          const shiftBy = activeSegments[activeSegments.length - 1]?.endAt ?? 15;
+          const shiftBy = prependShiftSeconds;
           const mergeOptions: MasterWavMergeOptions | undefined =
             existingVoiceBuffer && combineMode !== 'standalone'
               ? {
@@ -407,20 +416,36 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
       {hasExistingVoice && scope !== 'full-video' && scope !== 'custom-script' && (
         <div className="inspector-col">
           <label>Ya tenés una voz cargada ({scene.audioTrack?.name}) — ¿cómo combinamos estos nodos?</label>
-          <select
-            value={combineMode}
-            onChange={(e) => setCombineMode(e.target.value as ExistingVoiceCombineMode)}
-          >
-            <option value="prepend-shift">
-              ➕ Anteponer al audio actual (corre la voz existente después de la intro nueva)
-            </option>
-            <option value="replace-ranges">
-              🩹 Reemplazar solo estos nodos (conserva el resto de tu audio intacto)
-            </option>
-            <option value="standalone">
-              🆕 Generar solo estos nodos (sin mezclar con la voz anterior)
-            </option>
-          </select>
+          <div className="topic-row">
+            <select
+              style={{ flex: 1 }}
+              value={combineMode}
+              onChange={(e) => setCombineMode(e.target.value as ExistingVoiceCombineMode)}
+            >
+              <option value="replace-ranges">
+                🩹 Reemplazar solo estos nodos (conserva el resto de tu audio intacto)
+              </option>
+              <option value="prepend-shift">
+                ➕ Anteponer al audio actual (corre tu audio previo y reemplaza si elegís también el #3)
+              </option>
+              <option value="standalone">
+                🆕 Generar solo estos nodos (sin mezclar con la voz anterior)
+              </option>
+            </select>
+            {combineMode === 'prepend-shift' && (
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={prependShiftSeconds}
+                onChange={(e) =>
+                  setPrependShiftSeconds(Math.max(0, parseFloat(e.target.value) || 0))
+                }
+                title="Segundos que se desplaza el audio anterior hacia adelante"
+                style={{ width: 82 }}
+              />
+            )}
+          </div>
         </div>
       )}
 

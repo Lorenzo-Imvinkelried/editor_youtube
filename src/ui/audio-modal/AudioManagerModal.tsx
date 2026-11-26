@@ -5,9 +5,11 @@
  * 3) Subir pista de Voz / Audio manual desde archivo o link.
  */
 
-import React, { useState } from 'react';
-import { Check, Mic, Music, Trash2, Upload, Volume2, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Check, Layers, Loader2, Mic, Music, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { DslAudioTrack, DslMusicTrack, DslScene } from '../../dsl/dslTypes';
+import { stitchTwoVoiceFilesToMasterWavUrl } from '../../engine/elevenLabsClient';
+import { extractSceneNarrationSegments } from '../../engine/narrationExtractor';
 import { ElevenLabsNarrationTab } from './ElevenLabsNarrationTab';
 import { InstrumentalMusicTab } from './InstrumentalMusicTab';
 
@@ -36,11 +38,54 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
   const [audioName, setAudioName] = useState(currentVoice?.name || '');
   const [volume, setVolume] = useState(currentVoice?.volume ?? 0.9);
 
+  // Unidor rápido de 2 archivos (Intro nueva + Resto del video ya narrado)
+  const defaultIntroEnd = useMemo(() => {
+    const segs = extractSceneNarrationSegments(scene);
+    const introSegs = segs.filter((s) =>
+      (s.subtitleNodeId || '').toLowerCase().startsWith('intro-')
+    );
+    if (introSegs.length > 0) return introSegs[introSegs.length - 1].endAt;
+    return 15;
+  }, [scene]);
+
+  const [stitchIntroFile, setStitchIntroFile] = useState<File | null>(null);
+  const [stitchRestFile, setStitchRestFile] = useState<File | null>(null);
+  const [stitchSecondOffset, setStitchSecondOffset] = useState<number>(defaultIntroEnd);
+  const [isStitching, setIsStitching] = useState(false);
+  const [stitchMsg, setStitchMsg] = useState<string | null>(null);
+  const [stitchError, setStitchError] = useState<string | null>(null);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setAudioUrl(URL.createObjectURL(file));
     setAudioName(file.name);
+  };
+
+  const handleStitchTwoVoiceFiles = async () => {
+    if (!stitchIntroFile || !stitchRestFile) return;
+    setStitchError(null);
+    setStitchMsg(null);
+    setIsStitching(true);
+    try {
+      const res = await stitchTwoVoiceFilesToMasterWavUrl(
+        stitchIntroFile,
+        stitchRestFile,
+        stitchSecondOffset,
+        scene.duration
+      );
+      setAudioUrl(res.wavUrl);
+      setAudioName(`Voz Unida (${stitchIntroFile.name} + ${stitchRestFile.name})`);
+      setStitchMsg(
+        `¡Unidos! Intro (${res.firstDuration.toFixed(1)}s) + Resto desde ${stitchSecondOffset.toFixed(1)}s (${res.secondDuration.toFixed(1)}s). Guardá abajo y luego podés ir a ElevenLabs a reemplazar solo el nodo #3.`
+      );
+    } catch (err) {
+      setStitchError(
+        err instanceof Error ? err.message : 'No se pudieron decodificar ambos archivos de audio.'
+      );
+    } finally {
+      setIsStitching(false);
+    }
   };
 
   const handleApplyManual = () => {
@@ -130,6 +175,59 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
                   style={{ display: 'none' }}
                 />
               </label>
+
+              <div className="narration-preview-box">
+                <strong style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Layers size={14} className="text-sky" />
+                  Unir 2 archivos de voz (Intro nueva + Resto del video)
+                </strong>
+                <div className="audio-options-grid">
+                  <label className="upload-drop-btn" style={{ padding: '10px 8px' }}>
+                    <Upload size={14} />
+                    <span>{stitchIntroFile ? `✅ ${stitchIntroFile.name}` : '1) Archivo Intro (00:00)'}</span>
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.webm,.opus"
+                      onChange={(e) => setStitchIntroFile(e.target.files?.[0] || null)}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <label className="upload-drop-btn" style={{ padding: '10px 8px' }}>
+                    <Upload size={14} />
+                    <span>{stitchRestFile ? `✅ ${stitchRestFile.name}` : '2) Archivo Resto del video'}</span>
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.webm,.opus"
+                      onChange={(e) => setStitchRestFile(e.target.files?.[0] || null)}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                <div className="topic-row" style={{ alignItems: 'center' }}>
+                  <label style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                    El archivo 2 arranca en el segundo:
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={stitchSecondOffset}
+                    onChange={(e) => setStitchSecondOffset(Math.max(0, parseFloat(e.target.value) || 0))}
+                    style={{ width: 78 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={!stitchIntroFile || !stitchRestFile || isStitching}
+                    onClick={handleStitchTwoVoiceFiles}
+                  >
+                    {isStitching ? <Loader2 size={14} className="spin-icon" /> : <Layers size={14} />}
+                    Unir en 1 pista
+                  </button>
+                </div>
+                {stitchMsg && <div className="music-status-badge" style={{ borderRadius: 7, padding: '6px 9px' }}>{stitchMsg}</div>}
+                {stitchError && <div className="json-error-banner">{stitchError}</div>}
+              </div>
 
               <div className="inspector-col">
                 <label>O pegá un link directo a un archivo de audio (.mp3 / .wav):</label>

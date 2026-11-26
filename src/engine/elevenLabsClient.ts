@@ -292,7 +292,7 @@ export function assembleClipsIntoMasterWavUrl(
     const ch1 = baseBuf.numberOfChannels > 1 ? baseBuf.getChannelData(1) : null;
     const ratio = baseBuf.sampleRate / sampleRate;
     const outLen = Math.floor(baseBuf.length / ratio);
-    const ranges = mergeOptions.mode === 'replace-ranges' ? mergeOptions.replacedRanges ?? [] : [];
+    const ranges = mergeOptions.replacedRanges ?? [];
     const rampSec = 0.035;
 
     for (let s = 0; s < outLen; s++) {
@@ -342,6 +342,45 @@ export function assembleClipsIntoMasterWavUrl(
   }
 
   return encodeFloat32ToWavBlobUrl(mixedPcm, sampleRate);
+}
+
+/**
+ * Une dos archivos de voz locales (ej. Intro nueva + Audio viejo de 10 minutos) en un único
+ * archivo WAV maestro de 44.1 kHz, colocando el segundo archivo exactamente en `secondStartAtSeconds`.
+ */
+export async function stitchTwoVoiceFilesToMasterWavUrl(
+  firstFile: File,
+  secondFile: File,
+  secondStartAtSeconds: number,
+  totalDurationSeconds: number
+): Promise<{ wavUrl: string; firstDuration: number; secondDuration: number }> {
+  const AudioCtx =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new AudioCtx();
+  try {
+    const [b1, b2] = await Promise.all([
+      firstFile.arrayBuffer().then((ab) => ctx.decodeAudioData(ab)),
+      secondFile.arrayBuffer().then((ab) => ctx.decodeAudioData(ab))
+    ]);
+
+    const wavUrl = assembleClipsIntoMasterWavUrl(
+      [
+        { audioBuffer: b1, durationSeconds: b1.duration },
+        { audioBuffer: b2, durationSeconds: b2.duration }
+      ],
+      [0, Math.max(0, secondStartAtSeconds)],
+      Math.max(totalDurationSeconds, Math.max(0, secondStartAtSeconds) + b2.duration + 0.3)
+    );
+
+    return {
+      wavUrl,
+      firstDuration: b1.duration,
+      secondDuration: b2.duration
+    };
+  } finally {
+    ctx.close().catch(() => {});
+  }
 }
 
 function encodeFloat32ToWavBlobUrl(samples: Float32Array, sampleRate: number): string {
