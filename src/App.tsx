@@ -16,6 +16,11 @@ import {
 } from './dsl/dslTypes';
 import { resolveSceneLayout } from './dsl/layoutResolver';
 import { projectAudioController } from './engine/audioController';
+import {
+  deletePersistedAudio,
+  hydrateAllProjectsAudio,
+  persistAudioFromUrl
+} from './engine/audioPersistenceStore';
 import { isSceneLightPaper } from './engine/backgroundRenderer';
 import { evaluateCameraAtTime } from './engine/cameraEvaluator';
 import { evaluateNodesAtTime } from './engine/nodeEvaluator';
@@ -52,6 +57,22 @@ export const App: React.FC = () => {
     () => projects.find((p) => p.manifest.id === activeProjectId) || projects[0],
     [projects, activeProjectId]
   );
+
+  // Restaurar desde IndexedDB los audios (voz y música) guardados para que sobrevivan F5
+  useEffect(() => {
+    let cancelled = false;
+    hydrateAllProjectsAudio(projects).then(({ bundles, changed }) => {
+      if (!cancelled && changed) {
+        setProjects(bundles);
+        saveAllIsolatedProjects(bundles);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Solo al montar la aplicación
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reloj determinista a 60 FPS
   useEffect(() => {
@@ -178,6 +199,7 @@ export const App: React.FC = () => {
     track: DslAudioTrack | undefined,
     retimedScene?: DslScene
   ) => {
+    const projectId = activeProject.manifest.id;
     updateActiveProject((proj) => {
       const baseScene = retimedScene ?? proj.scene;
       return {
@@ -192,13 +214,17 @@ export const App: React.FC = () => {
         }
       };
     });
-    if (track) {
+    if (track?.src) {
+      void persistAudioFromUrl(projectId, 'voice', track.src);
       setCurrentTime(0);
       setIsPlaying(true);
+    } else {
+      void deletePersistedAudio(projectId, 'voice');
     }
   };
 
   const handleSaveMusicTrack = (musicTrack: DslMusicTrack | undefined) => {
+    const projectId = activeProject.manifest.id;
     updateActiveProject((proj) => ({
       ...proj,
       scene: {
@@ -206,9 +232,12 @@ export const App: React.FC = () => {
         musicTrack
       }
     }));
-    if (musicTrack) {
+    if (musicTrack?.src) {
+      void persistAudioFromUrl(projectId, 'music', musicTrack.src);
       setCurrentTime(0);
       setIsPlaying(true);
+    } else {
+      void deletePersistedAudio(projectId, 'music');
     }
   };
 
