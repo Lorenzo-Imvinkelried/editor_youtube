@@ -47,7 +47,14 @@ export function loadAllIsolatedProjects(): VideoProjectBundle[] {
         existing.chatHistory.length === seed.chatHistory.length
       ) {
         dirty = true;
-        return seed;
+        return {
+          ...seed,
+          scene: {
+            ...seed.scene,
+            audioTrack: existing.scene.audioTrack ?? seed.scene.audioTrack,
+            musicTrack: existing.scene.musicTrack ?? seed.scene.musicTrack
+          }
+        };
       }
       return existing;
     });
