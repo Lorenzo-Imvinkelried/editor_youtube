@@ -12,6 +12,8 @@ export interface SceneNarrationSegment {
   endAt: number;
   text: string;
   subtitleNodeId?: string;
+  /** Título breve de la escena (para identificar rápido cada nodo en el selector) */
+  sceneTitle?: string;
 }
 
 /**
@@ -80,12 +82,18 @@ export function extractSceneNarrationSegments(scene: DslScene): SceneNarrationSe
     const spoken = cleanSpokenText(best.text || best.label);
     if (!spoken) continue;
 
+    const titleCandidate = candidates.find((c) => c.id !== best.id);
+    const sceneTitle = titleCandidate
+      ? cleanSpokenText(titleCandidate.text || titleCandidate.label)
+      : undefined;
+
     segments.push({
       index: segments.length,
       startAt: windowStart,
       endAt: windowEnd,
       text: spoken,
-      subtitleNodeId: best.id
+      subtitleNodeId: best.id,
+      sceneTitle
     });
   }
 
@@ -153,11 +161,16 @@ export function retimeSceneToSpokenDurations(
     subtitleNodeId?: string;
   }> = [];
 
-  let cursor = 0;
+  let cursor = narratedSegments[0].startAt;
+  let prevOldEnd = narratedSegments[0].startAt;
   const audioStartOffsets: number[] = [];
 
   for (let i = 0; i < narratedSegments.length; i++) {
     const seg = narratedSegments[i];
+    if (seg.startAt > prevOldEnd + 0.05) {
+      cursor += seg.startAt - prevOldEnd;
+    }
+
     const voiceDur = Math.max(0.8, spokenDurations[i] ?? 3);
     const oldSpan = Math.max(0.5, seg.endAt - seg.startAt);
     const newSpan = Math.max(2.6, leadInSeconds + voiceDur + pauseSeconds);
@@ -176,19 +189,27 @@ export function retimeSceneToSpokenDurations(
     });
 
     cursor += newSpan;
+    prevOldEnd = seg.startAt + oldSpan;
   }
 
   const lastOldEnd = windows[windows.length - 1].oldEnd;
   const tailShift = cursor - lastOldEnd;
 
   const mapTimestamp = (oldT: number): number => {
-    for (const w of windows) {
+    for (let idx = 0; idx < windows.length; idx++) {
+      const w = windows[idx];
       if (oldT >= w.oldStart - 0.05 && oldT < w.oldEnd - 0.02) {
         const localOffset = Math.max(0, oldT - w.oldStart);
         const ratio = (w.newEnd - w.newStart) / Math.max(0.2, w.oldEnd - w.oldStart);
         // Las animaciones de entrada (<1s) conservan su agilidad; las posteriores escalan
         const mappedOffset = localOffset <= 0.8 ? localOffset : localOffset * ratio;
         return Number(Math.min(w.newEnd - 0.1, w.newStart + mappedOffset).toFixed(2));
+      }
+      // Si el instante cae en un tramo intermedio NO seleccionado entre dos ventanas, conservar el desplazamiento acumulado
+      const nextW = windows[idx + 1];
+      if (nextW && oldT >= w.oldEnd - 0.02 && oldT < nextW.oldStart - 0.05) {
+        const shiftHere = w.newEnd - w.oldEnd;
+        return Number(Math.max(0, oldT + shiftHere).toFixed(2));
       }
     }
     if (oldT >= lastOldEnd - 0.02) {

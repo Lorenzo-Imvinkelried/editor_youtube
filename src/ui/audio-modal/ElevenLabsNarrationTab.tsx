@@ -9,12 +9,14 @@ import { Check, Download, KeyRound, Loader2, Mic, Sparkles, Volume2 } from 'luci
 import { DslAudioTrack, DslScene } from '../../dsl/dslTypes';
 import {
   assembleClipsIntoMasterWavUrl,
+  decodeExistingVoiceTrack,
   DEFAULT_ELEVENLABS_VOICE_ID,
   ElevenLabsModelId,
   fetchFreePremadePreviewMap,
   FREE_TIER_PREMADE_VOICES,
   isLikelyElevenLabsKeyId,
   loadSavedElevenLabsConfig,
+  MasterWavMergeOptions,
   saveElevenLabsConfig,
   synthesizeElevenLabsSegment,
   SynthesizedClip
@@ -23,6 +25,7 @@ import {
   extractSceneNarrationSegments,
   retimeSceneToSpokenDurations
 } from '../../engine/narrationExtractor';
+import { NarrationNodePicker } from './NarrationNodePicker';
 
 interface ElevenLabsNarrationTabProps {
   projectId: string;
@@ -31,7 +34,18 @@ interface ElevenLabsNarrationTabProps {
   onClose: () => void;
 }
 
-type NarrationScope = 'first-minute' | 'full-video' | 'custom-script';
+type NarrationScope = 'selected-nodes' | 'first-minute' | 'full-video' | 'custom-script';
+type ExistingVoiceCombineMode = 'prepend-shift' | 'replace-ranges' | 'standalone';
+
+function computeDefaultSelectedNodeIndices(
+  segments: ReturnType<typeof extractSceneNarrationSegments>
+): Set<number> {
+  const introIds = segments
+    .filter((s) => (s.subtitleNodeId || '').toLowerCase().startsWith('intro-'))
+    .map((s) => s.index);
+  if (introIds.length > 0) return new Set(introIds);
+  return new Set(segments.slice(0, 2).map((s) => s.index));
+}
 
 export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
   projectId,
@@ -41,6 +55,7 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
 }) => {
   const saved = useMemo(() => loadSavedElevenLabsConfig(), []);
   const allSegments = useMemo(() => extractSceneNarrationSegments(scene), [scene]);
+  const hasExistingVoice = Boolean(scene.audioTrack?.src);
 
   const isSavedPreset = FREE_TIER_PREMADE_VOICES.some((v) => v.id === saved.voiceId);
 
@@ -52,10 +67,18 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
     isSavedPreset ? '' : saved.voiceId
   );
   const [modelId, setModelId] = useState<ElevenLabsModelId>(saved.modelId);
-  const [scope, setScope] = useState<NarrationScope>(() =>
-    scene.duration > 90 ? 'first-minute' : 'full-video'
+  const [scope, setScope] = useState<NarrationScope>(() => {
+    const hasIntro = allSegments.some((s) =>
+      (s.subtitleNodeId || '').toLowerCase().startsWith('intro-')
+    );
+    if (hasIntro || hasExistingVoice) return 'selected-nodes';
+    return scene.duration > 90 ? 'first-minute' : 'full-video';
+  });
+  const [selectedNodeIndices, setSelectedNodeIndices] = useState<Set<number>>(() =>
+    computeDefaultSelectedNodeIndices(allSegments)
   );
-  const [autoSyncTimeline, setAutoSyncTimeline] = useState(true);
+  const [combineMode, setCombineMode] = useState<ExistingVoiceCombineMode>('prepend-shift');
+  const [autoSyncTimeline, setAutoSyncTimeline] = useState(false);
   const [customScript, setCustomScript] = useState(() =>
     allSegments
       .slice(0, 8)
@@ -86,11 +109,14 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
       : selectedPresetVoice;
 
   const activeSegments = useMemo(() => {
+    if (scope === 'selected-nodes') {
+      return allSegments.filter((s) => selectedNodeIndices.has(s.index));
+    }
     if (scope === 'first-minute') {
       return allSegments.filter((s) => s.startAt < 60);
     }
     return allSegments;
-  }, [allSegments, scope]);
+  }, [allSegments, scope, selectedNodeIndices]);
 
   const totalCharacters = useMemo(() => {
     if (scope === 'custom-script') return customScript.trim().length;
@@ -146,13 +172,17 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
         setStatusText(`¡Locución lista! (${clip.durationSeconds.toFixed(1)}s)`);
       } else {
         if (activeSegments.length === 0) {
-          throw new Error('No se encontraron textos narrables en las escenas del proyecto.');
+          throw new Error(
+            scope === 'selected-nodes'
+              ? 'Seleccioná al menos un nodo de la lista para narrar.'
+              : 'No se encontraron textos narrables en las escenas del proyecto.'
+          );
         }
 
         const clips: SynthesizedClip[] = [];
         for (let i = 0; i < activeSegments.length; i++) {
           setStatusText(
-            `Narrando escena ${i + 1} de ${activeSegments.length} en ElevenLabs...`
+            `Narrando nodo ${i + 1} de ${activeSegments.length} (#${activeSegments[i].index + 1}) en ElevenLabs...`
           );
           const clip = await synthesizeElevenLabsSegment(
             activeSegments[i].text,
@@ -163,6 +193,13 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           clips.push(clip);
         }
 
+        // Decodificar voz existente si el usuario pidió anteponer o parchar sobre su audio actual
+        let existingVoiceBuffer: AudioBuffer | null = null;
+        if (hasExistingVoice && scene.audioTrack?.src && combineMode !== 'standalone') {
+          setStatusText('Combinando clips nuevos con tu pista de voz existente...');
+          existingVoiceBuffer = await decodeExistingVoiceTrack(scene.audioTrack.src, audioCtx);
+        }
+
         if (autoSyncTimeline) {
           const spokenDurations = clips.map((c) => c.durationSeconds);
           const retimed = retimeSceneToSpokenDurations(
@@ -170,26 +207,71 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
             activeSegments,
             spokenDurations
           );
+          const lastSegEnd =
+            (retimed.audioStartOffsets[retimed.audioStartOffsets.length - 1] ?? 0) +
+            (spokenDurations[spokenDurations.length - 1] ?? 0) +
+            0.45;
+          const mergeOptions: MasterWavMergeOptions | undefined =
+            existingVoiceBuffer && combineMode !== 'standalone'
+              ? {
+                  existingVoiceBuffer,
+                  mode: combineMode,
+                  shiftExistingBySeconds: lastSegEnd,
+                  replacedRanges: activeSegments.map((s) => ({ start: s.startAt, end: s.endAt }))
+                }
+              : undefined;
+
           const wavUrl = assembleClipsIntoMasterWavUrl(
             clips,
             retimed.audioStartOffsets,
-            retimed.totalDuration
+            retimed.totalDuration,
+            mergeOptions
           );
           setGeneratedWavUrl(wavUrl);
           setPendingScene(retimed.updatedScene);
           setStatusText(
-            `¡${clips.length} escenas narradas y sincronizadas automáticamente!`
+            mergeOptions
+              ? `¡${clips.length} nodos narrados, sincronizados y empalmados con tu voz anterior!`
+              : `¡${clips.length} nodos narrados y sincronizados automáticamente!`
           );
         } else {
+          const isStandaloneSubset =
+            scope === 'selected-nodes' && (!existingVoiceBuffer || combineMode === 'standalone');
           const fixedOffsets = activeSegments.map((s) => s.startAt + 0.3);
+          const shiftBy = activeSegments[activeSegments.length - 1]?.endAt ?? 15;
+          const mergeOptions: MasterWavMergeOptions | undefined =
+            existingVoiceBuffer && combineMode !== 'standalone'
+              ? {
+                  existingVoiceBuffer,
+                  mode: combineMode,
+                  shiftExistingBySeconds: shiftBy,
+                  replacedRanges: activeSegments.map((s) => ({ start: s.startAt, end: s.endAt }))
+                }
+              : undefined;
+
+          // Si es solo un subconjunto sin audio previo, mantener tiempos reales del video para que coincida con las escenas
+          const targetTotal = isStandaloneSubset
+            ? Math.max(
+                activeSegments[activeSegments.length - 1].endAt + 0.5,
+                (fixedOffsets[fixedOffsets.length - 1] ?? 0) +
+                  (clips[clips.length - 1]?.durationSeconds ?? 2) +
+                  0.5
+              )
+            : scene.duration;
+
           const wavUrl = assembleClipsIntoMasterWavUrl(
             clips,
             fixedOffsets,
-            scene.duration
+            targetTotal,
+            mergeOptions
           );
           setGeneratedWavUrl(wavUrl);
           setPendingScene(undefined);
-          setStatusText(`¡${clips.length} escenas narradas sobre el timeline actual!`);
+          setStatusText(
+            mergeOptions
+              ? `¡${clips.length} nodos narrados y combinados con tu pista de voz actual!`
+              : `¡${clips.length} nodos narrados en sus tiempos exactos!`
+          );
         }
       }
     } catch (err) {
@@ -306,6 +388,9 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
             value={scope}
             onChange={(e) => setScope(e.target.value as NarrationScope)}
           >
+            <option value="selected-nodes">
+              🎯 Elegir escenas / nodos específicos ({selectedNodeIndices.size} elegidos)
+            </option>
             {scene.duration > 90 && (
               <option value="first-minute">
                 Primer minuto ({allSegments.filter((s) => s.startAt < 60).length} escenas)
@@ -319,6 +404,26 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
         </div>
       </div>
 
+      {hasExistingVoice && scope !== 'full-video' && scope !== 'custom-script' && (
+        <div className="inspector-col">
+          <label>Ya tenés una voz cargada ({scene.audioTrack?.name}) — ¿cómo combinamos estos nodos?</label>
+          <select
+            value={combineMode}
+            onChange={(e) => setCombineMode(e.target.value as ExistingVoiceCombineMode)}
+          >
+            <option value="prepend-shift">
+              ➕ Anteponer al audio actual (corre la voz existente después de la intro nueva)
+            </option>
+            <option value="replace-ranges">
+              🩹 Reemplazar solo estos nodos (conserva el resto de tu audio intacto)
+            </option>
+            <option value="standalone">
+              🆕 Generar solo estos nodos (sin mezclar con la voz anterior)
+            </option>
+          </select>
+        </div>
+      )}
+
       {scope === 'custom-script' ? (
         <textarea
           className="prompt-preview-textarea"
@@ -327,6 +432,24 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           onChange={(e) => setCustomScript(e.target.value)}
           placeholder="Escribí acá el texto que querés que narre la voz..."
         />
+      ) : scope === 'selected-nodes' ? (
+        <div className="narration-preview-box">
+          <label className="sync-checkbox-row">
+            <input
+              type="checkbox"
+              checked={autoSyncTimeline}
+              onChange={(e) => setAutoSyncTimeline(e.target.checked)}
+            />
+            <span>
+              Auto-ajustar duración de los nodos elegidos y <code>typewriter</code> a la voz real
+            </span>
+          </label>
+          <NarrationNodePicker
+            segments={allSegments}
+            selectedIndices={selectedNodeIndices}
+            onChangeSelected={setSelectedNodeIndices}
+          />
+        </div>
       ) : (
         <div className="narration-preview-box">
           <label className="sync-checkbox-row">

@@ -217,25 +217,110 @@ export async function synthesizeElevenLabsSegment(
   };
 }
 
+export interface MasterWavMergeOptions {
+  /** AudioBuffer de la pista de voz ya cargada en el proyecto */
+  existingVoiceBuffer: AudioBuffer;
+  /**
+   * 'prepend-shift': desplaza la voz existente hacia adelante e inserta la intro nueva antes.
+   * 'replace-ranges': mantiene la voz existente intacta fuera de las escenas regeneradas.
+   */
+  mode: 'prepend-shift' | 'replace-ranges';
+  /** Desplazamiento en segundos para 'prepend-shift' */
+  shiftExistingBySeconds?: number;
+  /** Ventanas a silenciar de la voz anterior antes de insertar los clips nuevos ('replace-ranges') */
+  replacedRanges?: Array<{ start: number; end: number }>;
+}
+
+/**
+ * Decodifica una pista de voz existente (Blob URL, Data URL o link) para poder combinarla
+ * con clips recién generados sin volver a gastar créditos en el resto del video.
+ */
+export async function decodeExistingVoiceTrack(
+  audioUrl: string,
+  decodeCtx: BaseAudioContext
+): Promise<AudioBuffer | null> {
+  try {
+    const response = await fetch(audioUrl);
+    if (!response.ok) return null;
+    const bytes = await response.arrayBuffer();
+    return await decodeCtx.decodeAudioData(bytes);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Une múltiples clips de voz decodificados en sus instantes exactos (`startOffsets`)
- * dentro de un archivo WAV PCM 16-bit de 44.1 kHz listo para reproducir y muxear en MP4.
+ * dentro de un archivo WAV PCM 16-bit de 44.1 kHz, con soporte opcional para anteponer
+ * o parchar sobre una pista de voz existente sin regenerar el video completo.
  */
 export function assembleClipsIntoMasterWavUrl(
   clips: SynthesizedClip[],
   startOffsets: number[],
-  totalDurationSeconds: number
+  totalDurationSeconds: number,
+  mergeOptions?: MasterWavMergeOptions
 ): string {
   const sampleRate = 44100;
   let maxRequiredSeconds = totalDurationSeconds;
+
   for (let i = 0; i < clips.length; i++) {
     const end = (startOffsets[i] ?? 0) + clips[i].durationSeconds + 0.2;
     if (end > maxRequiredSeconds) maxRequiredSeconds = end;
   }
 
+  if (mergeOptions?.existingVoiceBuffer) {
+    const shiftSec =
+      mergeOptions.mode === 'prepend-shift'
+        ? Math.max(0, mergeOptions.shiftExistingBySeconds ?? 0)
+        : 0;
+    const existingEnd = shiftSec + mergeOptions.existingVoiceBuffer.duration + 0.2;
+    if (existingEnd > maxRequiredSeconds) maxRequiredSeconds = existingEnd;
+  }
+
   const totalSamples = Math.max(sampleRate, Math.ceil(maxRequiredSeconds * sampleRate));
   const mixedPcm = new Float32Array(totalSamples);
 
+  // 1. Volcar primero la pista de voz existente (si se solicitó combinar/anteponer)
+  if (mergeOptions?.existingVoiceBuffer) {
+    const baseBuf = mergeOptions.existingVoiceBuffer;
+    const shiftSec =
+      mergeOptions.mode === 'prepend-shift'
+        ? Math.max(0, mergeOptions.shiftExistingBySeconds ?? 0)
+        : 0;
+    const baseStartSample = Math.floor(shiftSec * sampleRate);
+    const ch0 = baseBuf.getChannelData(0);
+    const ch1 = baseBuf.numberOfChannels > 1 ? baseBuf.getChannelData(1) : null;
+    const ratio = baseBuf.sampleRate / sampleRate;
+    const outLen = Math.floor(baseBuf.length / ratio);
+    const ranges = mergeOptions.mode === 'replace-ranges' ? mergeOptions.replacedRanges ?? [] : [];
+    const rampSec = 0.035;
+
+    for (let s = 0; s < outLen; s++) {
+      const targetIdx = baseStartSample + s;
+      if (targetIdx >= totalSamples) break;
+      const targetTime = targetIdx / sampleRate;
+
+      let maskGain = 1;
+      for (const r of ranges) {
+        if (targetTime >= r.start && targetTime <= r.end) {
+          maskGain = 0;
+          break;
+        }
+        if (targetTime >= r.start - rampSec && targetTime < r.start) {
+          maskGain = Math.min(maskGain, (r.start - targetTime) / rampSec);
+        } else if (targetTime > r.end && targetTime <= r.end + rampSec) {
+          maskGain = Math.min(maskGain, (targetTime - r.end) / rampSec);
+        }
+      }
+      if (maskGain <= 0.0001) continue;
+
+      const srcIdx = Math.min(baseBuf.length - 1, Math.floor(s * ratio));
+      const val = ch1 ? (ch0[srcIdx] + ch1[srcIdx]) * 0.5 : ch0[srcIdx];
+      mixedPcm[targetIdx] = val * maskGain;
+    }
+  }
+
+  // 2. Superponer los clips recién generados en sus instantes exactos
   for (let i = 0; i < clips.length; i++) {
     const buf = clips[i].audioBuffer;
     const offsetSec = Math.max(0, startOffsets[i] ?? 0);
