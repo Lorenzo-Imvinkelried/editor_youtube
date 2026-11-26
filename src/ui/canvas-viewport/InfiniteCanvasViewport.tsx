@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, RotateCcw } from 'lucide-react';
+import { Eye, Lock, RotateCcw, Unlock } from 'lucide-react';
 import { DslScene, YouTubeAspectPreset } from '../../dsl/dslTypes';
 import { CameraState } from '../../engine/cameraEvaluator';
 import {
@@ -46,6 +46,10 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
   });
   const [dimOutsideFrame, setDimOutsideFrame] = useState<boolean>(true);
   const [showPlayerChrome, setShowPlayerChrome] = useState<boolean>(true);
+  const [isCanvasLocked, setIsCanvasLocked] = useState<boolean>(() => {
+    const saved = localStorage.getItem('infinite_editor.canvas_locked');
+    return saved === null ? true : saved === 'true';
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
@@ -120,6 +124,7 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
   ]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isCanvasLocked) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -149,7 +154,7 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
+    if (isCanvasLocked || !isDragging) return;
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
     setManualOverride((prev) => ({
@@ -164,6 +169,7 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (isCanvasLocked) return;
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     setManualOverride((prev) => ({
@@ -172,18 +178,36 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
     }));
   };
 
+  const toggleCanvasLock = () => {
+    setIsCanvasLocked((prev) => {
+      const next = !prev;
+      localStorage.setItem('infinite_editor.canvas_locked', String(next));
+      if (next) {
+        setIsDragging(false);
+        onSelectNode(null);
+      }
+      return next;
+    });
+  };
+
   const resetFreeCamera = () => {
+    setIsDragging(false);
     setManualOverride({ panX: 0, panY: 0, zoomMultiplier: 1 });
+    setDimOutsideFrame(true);
+    onSelectNode(null);
   };
 
   const hasManualOffset =
-    manualOverride.panX !== 0 || manualOverride.panY !== 0 || manualOverride.zoomMultiplier !== 1;
+    manualOverride.panX !== 0 ||
+    manualOverride.panY !== 0 ||
+    manualOverride.zoomMultiplier !== 1 ||
+    !dimOutsideFrame;
 
   return (
     <div className="canvas-viewport-container" ref={containerRef}>
       <canvas
         ref={canvasRef}
-        className="infinite-canvas-element"
+        className={`infinite-canvas-element ${isCanvasLocked ? 'locked' : ''}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -193,6 +217,28 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
 
       {/* Controles flotantes discretos abajo a la derecha sin tapar ni descentrar el cuadro */}
       <div className="viewport-corner-controls">
+        <button
+          type="button"
+          className={`corner-pill-btn ${isCanvasLocked ? 'locked' : 'active'}`}
+          onClick={toggleCanvasLock}
+          title={
+            isCanvasLocked
+              ? 'Pantalla fija (traba canvas, selección y zoom). Tocá para destrabar'
+              : 'Canvas y zoom destrabados. Tocá para fijar la pantalla'
+          }
+        >
+          {isCanvasLocked ? <Lock size={12} /> : <Unlock size={12} />}
+          {isCanvasLocked ? 'Pantalla Fija' : 'Canvas Libre'}
+        </button>
+        <button
+          type="button"
+          className={`corner-pill-btn ${hasManualOffset ? 'warning' : ''}`}
+          onClick={resetFreeCamera}
+          title="Restaurar zoom, encuadre y posición original de la pantalla"
+        >
+          <RotateCcw size={12} />
+          Resetear Vista
+        </button>
         <button
           type="button"
           className={`corner-pill-btn ${showPlayerChrome ? 'active' : ''}`}
@@ -208,12 +254,6 @@ export const InfiniteCanvasViewport: React.FC<InfiniteCanvasViewportProps> = ({
           <Eye size={12} />
           {dimOutsideFrame ? 'Máscara Recorte' : 'Ver Lienzo Completo'}
         </button>
-        {hasManualOffset && (
-          <button className="corner-pill-btn warning" onClick={resetFreeCamera}>
-            <RotateCcw size={12} />
-            Centrar Cámara IA
-          </button>
-        )}
       </div>
     </div>
   );
