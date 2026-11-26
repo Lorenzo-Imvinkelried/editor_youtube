@@ -314,8 +314,13 @@ export function assembleClipsIntoMasterWavUrl(
       }
       if (maskGain <= 0.0001) continue;
 
-      const srcIdx = Math.min(baseBuf.length - 1, Math.floor(s * ratio));
-      const val = ch1 ? (ch0[srcIdx] + ch1[srcIdx]) * 0.5 : ch0[srcIdx];
+      const srcPos = s * ratio;
+      const idx0 = Math.min(baseBuf.length - 1, Math.floor(srcPos));
+      const idx1 = Math.min(baseBuf.length - 1, idx0 + 1);
+      const frac = srcPos - idx0;
+      const v0 = ch1 ? (ch0[idx0] + ch1[idx0]) * 0.5 : ch0[idx0];
+      const v1 = ch1 ? (ch0[idx1] + ch1[idx1]) * 0.5 : ch0[idx1];
+      const val = v0 + (v1 - v0) * frac;
       mixedPcm[targetIdx] = val * maskGain;
     }
   }
@@ -335,8 +340,12 @@ export function assembleClipsIntoMasterWavUrl(
       const targetIdx = startSample + s;
       if (targetIdx >= totalSamples) break;
       const srcPos = s * ratio;
-      const srcIdx = Math.min(buf.length - 1, Math.floor(srcPos));
-      const sampleVal = ch1 ? (ch0[srcIdx] + ch1[srcIdx]) * 0.5 : ch0[srcIdx];
+      const idx0 = Math.min(buf.length - 1, Math.floor(srcPos));
+      const idx1 = Math.min(buf.length - 1, idx0 + 1);
+      const frac = srcPos - idx0;
+      const s0 = ch1 ? (ch0[idx0] + ch1[idx0]) * 0.5 : ch0[idx0];
+      const s1 = ch1 ? (ch0[idx1] + ch1[idx1]) * 0.5 : ch0[idx1];
+      const sampleVal = s0 + (s1 - s0) * frac;
       mixedPcm[targetIdx] = Math.max(-1, Math.min(1, mixedPcm[targetIdx] + sampleVal));
     }
   }

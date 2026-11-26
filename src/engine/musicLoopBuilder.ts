@@ -51,7 +51,7 @@ export function buildSeamlessLoopedPcm(
   sourceSampleRate: number,
   options: SmartMusicLoopOptions
 ): SeamlessLoopPcmResult {
-  const sampleRate = options.outputSampleRate ?? 44100;
+  const sampleRate = options.outputSampleRate ?? 48000;
   const targetDuration = Math.max(1, options.targetDurationSeconds);
   const trimSilence = options.trimSilence !== false;
 
@@ -194,18 +194,19 @@ export async function buildSmartLoopedMusicFromArrayBuffer(
   arrayBuffer: ArrayBuffer,
   options: SmartMusicLoopOptions
 ): Promise<SmartLoopedMusicOutput> {
-  const AudioCtx =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new AudioCtx();
+  const targetRate = options.outputSampleRate ?? 48000;
+  // OfflineAudioContext decodifica y remuestrea con filtro sinc de alta precisión a 48 kHz (sin aliasing)
+  const decodeCtx = new OfflineAudioContext(2, 128, targetRate);
 
   try {
-    // Clonar el buffer porque decodeAudioData desvincula (detaches) el ArrayBuffer original
-    const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    const decoded = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
     const left = decoded.getChannelData(0);
     const right = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : left;
 
-    const pcm = buildSeamlessLoopedPcm(left, right, decoded.sampleRate, options);
+    const pcm = buildSeamlessLoopedPcm(left, right, decoded.sampleRate, {
+      ...options,
+      outputSampleRate: targetRate
+    });
     const wavBlobUrl = encodeStereoPcmToWavBlobUrl(pcm.left, pcm.right, pcm.sampleRate);
 
     return {
@@ -224,8 +225,6 @@ export async function buildSmartLoopedMusicFromArrayBuffer(
     throw new Error(
       `No se pudo decodificar este archivo de audio. Probá con WAV, MP3, M4A, OGG, FLAC o WEBM. ${detail}`.trim()
     );
-  } finally {
-    ctx.close().catch(() => {});
   }
 }
 

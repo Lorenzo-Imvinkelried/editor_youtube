@@ -126,7 +126,7 @@ async function exportDeterministicWebCodecsMp4(params: DeterministicExportParams
       ? {
           codec: 'aac',
           numberOfChannels: 2,
-          sampleRate: 44100
+          sampleRate: decodedAudioBuffer!.sampleRate
         }
       : undefined,
     fastStart: 'in-memory'
@@ -244,60 +244,78 @@ function waitForQueueDrain(encoder: VideoEncoder): Promise<void> {
   });
 }
 
+const EXPORT_AUDIO_SAMPLE_RATE = 48000;
+const EXPORT_AUDIO_BITRATE = 192_000;
+
 async function renderProjectMasterAudioMix(
   voiceTrack: DslAudioTrack | undefined,
   musicTrack: DslMusicTrack | undefined,
   durationSeconds: number
 ): Promise<AudioBuffer | null> {
   try {
-    const sampleRate = 44100;
+    const sampleRate = EXPORT_AUDIO_SAMPLE_RATE;
     const totalFrames = Math.ceil(durationSeconds * sampleRate);
-    const offlineCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
+    // Decodificar y remuestrear con el filtro sinc nativo del navegador a 48 kHz exactos (estándar YouTube)
+    const decodeCtx = new OfflineAudioContext(2, 128, sampleRate);
 
     const [voiceBuf, musicBuf] = await Promise.all([
-      voiceTrack?.src ? fetchAndDecodeAudio(offlineCtx, voiceTrack.src) : Promise.resolve(null),
-      musicTrack?.src ? fetchAndDecodeAudio(offlineCtx, musicTrack.src) : Promise.resolve(null)
+      voiceTrack?.src ? fetchAndDecodeAudio(decodeCtx, voiceTrack.src) : Promise.resolve(null),
+      musicTrack?.src ? fetchAndDecodeAudio(decodeCtx, musicTrack.src) : Promise.resolve(null)
     ]);
 
     if (!voiceBuf && !musicBuf) return null;
 
-    // Compresor suave en el bus maestro para evitar saturación al sumar voz + música
-    const masterLimiter = offlineCtx.createDynamicsCompressor();
-    masterLimiter.threshold.value = -2;
-    masterLimiter.knee.value = 6;
-    masterLimiter.ratio.value = 6;
-    masterLimiter.attack.value = 0.005;
-    masterLimiter.release.value = 0.12;
-    masterLimiter.connect(offlineCtx.destination);
+    const mixedLeft = new Float32Array(totalFrames);
+    const mixedRight = new Float32Array(totalFrames);
 
-    if (voiceBuf && voiceTrack) {
-      const voiceSource = offlineCtx.createBufferSource();
-      voiceSource.buffer = voiceBuf;
-      const voiceGain = offlineCtx.createGain();
-      voiceGain.gain.value = Math.max(0, Math.min(1, voiceTrack.volume ?? 0.85));
-      voiceSource.connect(voiceGain);
-      voiceGain.connect(masterLimiter);
-      voiceSource.start(0);
-    }
-
+    // 1. Mezclar pista de música instrumental con envolvente de auto-ducking continua (0 clics)
     if (musicBuf && musicTrack) {
-      const musicSource = offlineCtx.createBufferSource();
-      musicSource.buffer = musicBuf;
-      const musicGain = offlineCtx.createGain();
       const baseVol = Math.max(0, Math.min(1, musicTrack.volume ?? 0.25));
-      musicGain.gain.setValueAtTime(baseVol, 0);
+      const mLeft = musicBuf.getChannelData(0);
+      const mRight = musicBuf.numberOfChannels > 1 ? musicBuf.getChannelData(1) : mLeft;
+      const musicLen = Math.min(totalFrames, musicBuf.length);
 
-      // Auto-ducking real por envolvente RMS de la voz cuando conviven voz y música
       if (voiceBuf && musicTrack.duckUnderVoice !== false) {
-        applyVoiceSidechainDucking(musicGain.gain, voiceBuf, baseVol, durationSeconds);
+        const duckEnvelope = computeSmoothVoiceDuckingEnvelope(
+          voiceBuf,
+          totalFrames,
+          sampleRate,
+          baseVol,
+          baseVol * 0.42
+        );
+        for (let i = 0; i < musicLen; i++) {
+          const g = duckEnvelope[i];
+          mixedLeft[i] += mLeft[i] * g;
+          mixedRight[i] += mRight[i] * g;
+        }
+      } else {
+        for (let i = 0; i < musicLen; i++) {
+          mixedLeft[i] += mLeft[i] * baseVol;
+          mixedRight[i] += mRight[i] * baseVol;
+        }
       }
-
-      musicSource.connect(musicGain);
-      musicGain.connect(masterLimiter);
-      musicSource.start(0);
     }
 
-    return await offlineCtx.startRendering();
+    // 2. Sumar pista de voz / locución limpia
+    if (voiceBuf && voiceTrack) {
+      const voiceVol = Math.max(0, Math.min(1, voiceTrack.volume ?? 0.85));
+      const vLeft = voiceBuf.getChannelData(0);
+      const vRight = voiceBuf.numberOfChannels > 1 ? voiceBuf.getChannelData(1) : vLeft;
+      const voiceLen = Math.min(totalFrames, voiceBuf.length);
+      for (let i = 0; i < voiceLen; i++) {
+        mixedLeft[i] += vLeft[i] * voiceVol;
+        mixedRight[i] += vRight[i] * voiceVol;
+      }
+    }
+
+    // 3. Soft-limiter transparente (evita saturación entre muestras al codificar AAC sin distorsión)
+    applyTransparentSoftLimiter(mixedLeft, mixedRight);
+
+    const outCtx = new OfflineAudioContext(2, totalFrames, sampleRate);
+    const masterBuffer = outCtx.createBuffer(2, totalFrames, sampleRate);
+    masterBuffer.copyToChannel(mixedLeft, 0);
+    masterBuffer.copyToChannel(mixedRight, 1);
+    return masterBuffer;
   } catch {
     return null;
   }
@@ -317,45 +335,82 @@ async function fetchAndDecodeAudio(
   }
 }
 
-function applyVoiceSidechainDucking(
-  gainParam: AudioParam,
-  voiceBuf: AudioBuffer,
+/**
+ * Calcula una envolvente de ganancia 100% continua muestra a muestra (sin saltos ni clics)
+ * usando detección RMS con tiempo de retención (`hold`) de 350 ms para no bombear entre palabras
+ * y suavizado exponencial de un polo (ataque 60 ms, liberación 550 ms).
+ */
+export function computeSmoothVoiceDuckingEnvelope(
+  voiceBuf: { getChannelData: (ch: number) => Float32Array; length: number },
+  totalFrames: number,
+  sampleRate: number,
   baseVolume: number,
-  durationSeconds: number
-): void {
-  const sr = voiceBuf.sampleRate;
-  const ch = voiceBuf.getChannelData(0);
-  const stepSec = 0.1; // Evaluación cada 100 ms para envolvente suave
-  const stepSamples = Math.max(1, Math.floor(stepSec * sr));
-  const duckedVolume = baseVolume * 0.42;
-  let currentlyDucked = false;
+  duckedVolume: number
+): Float32Array {
+  const voiceCh = voiceBuf.getChannelData(0);
+  const envelope = new Float32Array(totalFrames);
 
-  for (let t = 0; t < durationSeconds; t += stepSec) {
-    const start = Math.floor(t * sr);
-    if (start >= ch.length) {
-      if (currentlyDucked) {
-        gainParam.linearRampToValueAtTime(baseVolume, Math.min(durationSeconds, t + 0.45));
-        currentlyDucked = false;
+  const hopSamples = Math.max(1, Math.floor(0.01 * sampleRate)); // Ventana de 10 ms
+  const holdSamples = Math.floor(0.35 * sampleRate); // Retener 350 ms en pausas cortas entre palabras
+  const attackCoeff = Math.exp(-1 / (0.06 * sampleRate)); // 60 ms ataque suave
+  const releaseCoeff = Math.exp(-1 / (0.55 * sampleRate)); // 550 ms retorno gradual
+
+  let currentGain = baseVolume;
+  let holdCounter = 0;
+  let sampleIdx = 0;
+
+  while (sampleIdx < totalFrames) {
+    const blockEnd = Math.min(totalFrames, sampleIdx + hopSamples);
+    let voiceActive = false;
+
+    if (sampleIdx < voiceCh.length) {
+      const rmsEnd = Math.min(voiceCh.length, blockEnd);
+      let sumSq = 0;
+      for (let i = sampleIdx; i < rmsEnd; i++) {
+        sumSq += voiceCh[i] * voiceCh[i];
       }
-      break;
+      const rms = Math.sqrt(sumSq / Math.max(1, rmsEnd - sampleIdx));
+      if (rms > 0.014) {
+        voiceActive = true;
+      }
     }
 
-    const end = Math.min(ch.length, start + stepSamples);
-    let sumSq = 0;
-    for (let i = start; i < end; i++) {
-      sumSq += ch[i] * ch[i];
+    if (voiceActive) {
+      holdCounter = holdSamples;
+    } else if (holdCounter > 0) {
+      holdCounter = Math.max(0, holdCounter - (blockEnd - sampleIdx));
     }
-    const rms = Math.sqrt(sumSq / Math.max(1, end - start));
-    const voiceActive = rms > 0.015;
 
-    if (voiceActive && !currentlyDucked) {
-      gainParam.setValueAtTime(baseVolume, Math.max(0, t - 0.02));
-      gainParam.linearRampToValueAtTime(duckedVolume, Math.min(durationSeconds, t + 0.08));
-      currentlyDucked = true;
-    } else if (!voiceActive && currentlyDucked) {
-      gainParam.setValueAtTime(duckedVolume, t);
-      gainParam.linearRampToValueAtTime(baseVolume, Math.min(durationSeconds, t + 0.45));
-      currentlyDucked = false;
+    const targetGain = holdCounter > 0 ? duckedVolume : baseVolume;
+    const coeff = targetGain < currentGain ? attackCoeff : releaseCoeff;
+
+    for (let i = sampleIdx; i < blockEnd; i++) {
+      currentGain = targetGain + (currentGain - targetGain) * coeff;
+      envelope[i] = currentGain;
+    }
+
+    sampleIdx = blockEnd;
+  }
+
+  return envelope;
+}
+
+function applyTransparentSoftLimiter(left: Float32Array, right: Float32Array): void {
+  const knee = 0.88;
+  const ceiling = 0.96;
+  const span = ceiling - knee;
+
+  for (let i = 0; i < left.length; i++) {
+    const l = left[i];
+    const r = right[i];
+    const absL = Math.abs(l);
+    const absR = Math.abs(r);
+
+    if (absL > knee) {
+      left[i] = Math.sign(l) * (knee + span * Math.tanh((absL - knee) / span));
+    }
+    if (absR > knee) {
+      right[i] = Math.sign(r) * (knee + span * Math.tanh((absR - knee) / span));
     }
   }
 }
@@ -378,21 +433,30 @@ async function encodeAudioBufferToMuxer(
     codec: 'mp4a.40.2',
     numberOfChannels: 2,
     sampleRate,
-    bitrate: 128_000
+    bitrate: EXPORT_AUDIO_BITRATE
   });
 
-  const chunkSize = 4096;
-  for (let offset = 0; offset < totalFrames; offset += chunkSize) {
-    const length = Math.min(chunkSize, totalFrames - offset);
-    const planarData = new Float32Array(length * 2);
-    planarData.set(left.subarray(offset, offset + length), 0);
-    planarData.set(right.subarray(offset, offset + length), length);
+  // 3072 muestras = 3 tramas AAC exactas (64.000 µs enteros exactos a 48 kHz, sin jitter de redondeo)
+  const chunkSize = 3072;
+  const aacFrameSize = 1024;
 
-    const timestampMicros = Math.round((offset / sampleRate) * 1_000_000);
+  for (let offset = 0; offset < totalFrames; offset += chunkSize) {
+    const remaining = Math.min(chunkSize, totalFrames - offset);
+    // Rellenar el último bloque con silencio hasta múltiplo de 1024 para evitar chasquidos al final
+    const paddedLength =
+      remaining < chunkSize
+        ? Math.ceil(remaining / aacFrameSize) * aacFrameSize
+        : chunkSize;
+
+    const planarData = new Float32Array(paddedLength * 2);
+    planarData.set(left.subarray(offset, offset + remaining), 0);
+    planarData.set(right.subarray(offset, offset + remaining), paddedLength);
+
+    const timestampMicros = Math.round((offset * 1_000_000) / sampleRate);
     const audioData = new AudioData({
       format: 'f32-planar',
       sampleRate,
-      numberOfFrames: length,
+      numberOfFrames: paddedLength,
       numberOfChannels: 2,
       timestamp: timestampMicros,
       data: planarData
@@ -400,8 +464,26 @@ async function encodeAudioBufferToMuxer(
 
     audioEncoder.encode(audioData);
     audioData.close();
+
+    // Control de cola (backpressure) para que el codificador AAC no descarte paquetes en videos largos
+    if (audioEncoder.encodeQueueSize > 8) {
+      await waitForAudioQueueDrain(audioEncoder);
+    }
   }
 
   await audioEncoder.flush();
   audioEncoder.close();
+}
+
+function waitForAudioQueueDrain(encoder: AudioEncoder): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (encoder.encodeQueueSize <= 4) {
+        resolve();
+      } else {
+        setTimeout(check, 2);
+      }
+    };
+    check();
+  });
 }
