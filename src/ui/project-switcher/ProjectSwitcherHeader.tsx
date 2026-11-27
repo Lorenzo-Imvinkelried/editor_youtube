@@ -173,8 +173,8 @@ export const ProjectSwitcherHeader: React.FC<ProjectSwitcherHeaderProps> = ({
         <button
           type="button"
           className={`btn-secondary ${hasVoice ? 'btn-audio-active' : ''}`}
-          onClick={() => onOpenAudioModal('elevenlabs')}
-          title="Narrar automáticamente con ElevenLabs o subir pista de voz"
+          onClick={() => onOpenAudioModal('free-neural-tts')}
+          title="Narrar gratis e ilimitado con Voces Neuronales IA (edge-tts), ElevenLabs o subir voz"
         >
           <Mic size={14} />
           {hasVoice ? 'Voz ON' : 'Voz'}

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+.tts-venv/
 *.local
 *.tsbuildinfo
 

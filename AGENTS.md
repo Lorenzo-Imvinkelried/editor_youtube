@@ -63,6 +63,7 @@ EDITOR/
     │   ├── speechAudioAnalyzer.ts       # Analiza PCM real, recorta silencios y blinda cero solapamientos
     │   ├── elevenLabsClipCache.ts       # Caché IndexedDB por frase/voz para no repetir gasto de tokens
     │   ├── narrationWavAssembler.ts     # Ensamblador WAV 44.1 kHz con barrera anti-solapamiento y parches
+    │   ├── freeNeuralTtsClient.ts       # Cliente TTS neuronal gratuito ilimitado (edge-tts local en D:)
     │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs y catálogo de voces premade gratis
     │   ├── mp4Exporter.ts               # Codificador determinista 60 FPS a MP4 con WebCodecs y audio
     │   └── canvasRenderer.ts            # Dibuja fotografías en papel, láminas de patente y recorte de cuadro

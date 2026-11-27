@@ -6,14 +6,15 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Check, Layers, Loader2, Mic, Music, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { Check, Layers, Loader2, Mic, Music, Sparkles, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { DslAudioTrack, DslMusicTrack, DslScene } from '../../dsl/dslTypes';
 import { stitchTwoVoiceFilesToMasterWavUrl } from '../../engine/elevenLabsClient';
 import { extractSceneNarrationSegments } from '../../engine/narrationExtractor';
 import { ElevenLabsNarrationTab } from './ElevenLabsNarrationTab';
+import { FreeNeuralNarrationTab } from './FreeNeuralNarrationTab';
 import { InstrumentalMusicTab } from './InstrumentalMusicTab';
 
-export type AudioModalTab = 'instrumental-music' | 'elevenlabs' | 'voice-file';
+export type AudioModalTab = 'free-neural-tts' | 'instrumental-music' | 'elevenlabs' | 'voice-file';
 
 interface AudioManagerModalProps {
   projectId: string;
@@ -118,11 +119,19 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
           <div className="modal-tabs">
             <button
               type="button"
+              className={`modal-tab-btn ${activeTab === 'free-neural-tts' ? 'active' : ''}`}
+              onClick={() => setActiveTab('free-neural-tts')}
+            >
+              <Sparkles size={14} />
+              Voz IA Gratis {scene.audioTrack?.src ? '●' : ''}
+            </button>
+            <button
+              type="button"
               className={`modal-tab-btn ${activeTab === 'instrumental-music' ? 'active' : ''}`}
               onClick={() => setActiveTab('instrumental-music')}
             >
               <Music size={14} />
-              Música Instrumental {scene.musicTrack?.src ? '●' : ''}
+              Música {scene.musicTrack?.src ? '●' : ''}
             </button>
             <button
               type="button"
@@ -130,7 +139,7 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
               onClick={() => setActiveTab('elevenlabs')}
             >
               <Mic size={14} />
-              Narrador ElevenLabs {scene.audioTrack?.src ? '●' : ''}
+              ElevenLabs
             </button>
             <button
               type="button"
@@ -138,7 +147,7 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
               onClick={() => setActiveTab('voice-file')}
             >
               <Upload size={14} />
-              Subir Voz / Audio
+              Subir Audio
             </button>
           </div>
 
@@ -148,7 +157,16 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
         </div>
 
         <div className="modal-body" style={{ overflowY: 'auto' }}>
-          {activeTab === 'instrumental-music' ? (
+          {activeTab === 'free-neural-tts' ? (
+            <FreeNeuralNarrationTab
+              projectId={projectId}
+              scene={scene}
+              onApplyNarration={(track, retimedScene) =>
+                onSaveAudioAndScene(track, retimedScene)
+              }
+              onClose={onClose}
+            />
+          ) : activeTab === 'instrumental-music' ? (
             <InstrumentalMusicTab
               scene={scene}
               onSaveMusicTrack={onSaveMusicTrack}
