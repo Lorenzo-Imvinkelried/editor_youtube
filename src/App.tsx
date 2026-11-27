@@ -215,7 +215,7 @@ export const App: React.FC = () => {
       };
     });
     if (track?.src) {
-      void persistAudioFromUrl(projectId, 'voice', track.src);
+      void persistAudioFromUrl(projectId, 'voice', track.src, track.name);
       setCurrentTime(0);
       setIsPlaying(true);
     } else {
@@ -233,7 +233,7 @@ export const App: React.FC = () => {
       }
     }));
     if (musicTrack?.src) {
-      void persistAudioFromUrl(projectId, 'music', musicTrack.src);
+      void persistAudioFromUrl(projectId, 'music', musicTrack.src, musicTrack.name);
       setCurrentTime(0);
       setIsPlaying(true);
     } else {

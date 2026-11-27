@@ -1,8 +1,15 @@
 /**
- * Responsabilidad Única: Cachear localmente en IndexedDB los clips MP3 crudos generados por
- * ElevenLabs indexados por firma determinista `(voiceId, modelId, textoNormalizado)`, para
- * evitar volver a gastar tokens al re-sincronizar pausas, retomar tras un error o editar otra escena.
+ * Responsabilidad Única: Cachear con doble redundancia los clips MP3 crudos generados por
+ * ElevenLabs (IndexedDB + disco físico en `projects/<id>/assets/audio/clips/*.mp3`),
+ * indexados por firma determinista `(voiceId, modelId, textoNormalizado)`, para nunca
+ * volver a gastar tokens aunque se cierre la app, se reinicie la PC o se limpie el navegador.
  */
+
+import {
+  checkClipsPresentOnLocalDisk,
+  loadClipBytesFromLocalDisk,
+  saveClipBytesToLocalDisk
+} from './localDiskAudioVault';
 
 const CACHE_DB_NAME = 'infinite_editor_elevenlabs_clip_cache_v1';
 const CACHE_DB_VERSION = 1;
@@ -46,6 +53,17 @@ export function buildTtsClipCacheKey(voiceId: string, modelId: string, text: str
   return `v1::${voiceId.trim()}::${modelId.trim()}::${normalized.length}::${hash}::${head}|${tail}`;
 }
 
+/**
+ * Nombre de archivo seguro para disco (`clips/<hash>.mp3`) sin caracteres especiales.
+ */
+export function buildTtsClipDiskFileHash(voiceId: string, modelId: string, text: string): string {
+  const normalized = normalizeCacheText(text);
+  const safeVoice = voiceId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 14) || 'voice';
+  const safeModel = modelId.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 18) || 'model';
+  const hash = deterministicDoubleHash(`${voiceId.trim()}::${modelId.trim()}::${normalized}`);
+  return `v1_${safeVoice}_${safeModel}_${normalized.length}_${hash}`;
+}
+
 function openClipCacheDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -64,54 +82,8 @@ function openClipCacheDb(): Promise<IDBDatabase> {
   });
 }
 
-/**
- * Recupera una copia fresca (`slice(0)`) de los bytes MP3 cacheados para evitar
- * problemas de ArrayBuffer desconectado tras `decodeAudioData`.
- */
-export async function getCachedTtsClipBytes(
-  voiceId: string,
-  modelId: string,
-  text: string
-): Promise<ArrayBuffer | null> {
+async function putRecordInIndexedDb(record: CachedTtsRecord): Promise<void> {
   try {
-    const key = buildTtsClipCacheKey(voiceId, modelId, text);
-    const db = await openClipCacheDb();
-    const record = await new Promise<CachedTtsRecord | undefined>((resolve, reject) => {
-      const tx = db.transaction(CACHE_STORE_NAME, 'readonly');
-      const req = tx.objectStore(CACHE_STORE_NAME).get(key);
-      req.onsuccess = () => resolve(req.result as CachedTtsRecord | undefined);
-      req.onerror = () => reject(req.error);
-    });
-    db.close();
-    if (!record || !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0) {
-      return null;
-    }
-    return record.bytes.slice(0);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Guarda inmediatamente una copia segura de los bytes MP3 devueltos por ElevenLabs.
- */
-export async function saveCachedTtsClipBytes(
-  voiceId: string,
-  modelId: string,
-  text: string,
-  mp3Bytes: ArrayBuffer
-): Promise<void> {
-  if (!mp3Bytes || mp3Bytes.byteLength === 0) return;
-  try {
-    const key = buildTtsClipCacheKey(voiceId, modelId, text);
-    const record: CachedTtsRecord = {
-      key,
-      voiceId: voiceId.trim(),
-      modelId: modelId.trim(),
-      textLength: normalizeCacheText(text).length,
-      bytes: mp3Bytes.slice(0),
-      createdAt: Date.now()
-    };
     const db = await openClipCacheDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(CACHE_STORE_NAME, 'readwrite');
@@ -121,56 +93,149 @@ export async function saveCachedTtsClipBytes(
     });
     db.close();
   } catch {
-    // Nunca interrumpir la generación si el almacenamiento local está lleno o bloqueado
+    // Ignorar si IndexedDB no está disponible
   }
 }
 
 /**
- * Cuenta cuántos textos de una lista ya existen en caché local (0 créditos de ElevenLabs)
- * usando una sola transacción rápida de lectura.
+ * Recupera una copia fresca (`slice(0)`) de los bytes MP3 cacheados, buscando primero
+ * en IndexedDB y luego en disco físico (`projects/<id>/assets/audio/clips/*.mp3`).
+ */
+export async function getCachedTtsClipBytes(
+  voiceId: string,
+  modelId: string,
+  text: string,
+  projectId?: string
+): Promise<ArrayBuffer | null> {
+  const key = buildTtsClipCacheKey(voiceId, modelId, text);
+  const diskHash = buildTtsClipDiskFileHash(voiceId, modelId, text);
+
+  // 1. Buscar en IndexedDB
+  try {
+    const db = await openClipCacheDb();
+    const record = await new Promise<CachedTtsRecord | undefined>((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE_NAME, 'readonly');
+      const req = tx.objectStore(CACHE_STORE_NAME).get(key);
+      req.onsuccess = () => resolve(req.result as CachedTtsRecord | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    if (record && record.bytes instanceof ArrayBuffer && record.bytes.byteLength > 0) {
+      return record.bytes.slice(0);
+    }
+  } catch {
+    // Continuar hacia respaldo en disco físico
+  }
+
+  // 2. Respaldo en disco físico (`projects/<projectId>/assets/audio/clips/<hash>.mp3`)
+  if (projectId) {
+    const fromDisk = await loadClipBytesFromLocalDisk(projectId, diskHash);
+    if (fromDisk && fromDisk.byteLength > 0) {
+      // Re-hidratar IndexedDB en segundo plano
+      void putRecordInIndexedDb({
+        key,
+        voiceId: voiceId.trim(),
+        modelId: modelId.trim(),
+        textLength: normalizeCacheText(text).length,
+        bytes: fromDisk.slice(0),
+        createdAt: Date.now()
+      });
+      return fromDisk.slice(0);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Guarda simultáneamente una copia segura de los bytes MP3 en IndexedDB y en disco físico
+ * (`projects/<id>/assets/audio/clips/<hash>.mp3`) apenas responde ElevenLabs.
+ */
+export async function saveCachedTtsClipBytes(
+  voiceId: string,
+  modelId: string,
+  text: string,
+  mp3Bytes: ArrayBuffer,
+  projectId?: string
+): Promise<void> {
+  if (!mp3Bytes || mp3Bytes.byteLength === 0) return;
+
+  const key = buildTtsClipCacheKey(voiceId, modelId, text);
+  const diskHash = buildTtsClipDiskFileHash(voiceId, modelId, text);
+  const record: CachedTtsRecord = {
+    key,
+    voiceId: voiceId.trim(),
+    modelId: modelId.trim(),
+    textLength: normalizeCacheText(text).length,
+    bytes: mp3Bytes.slice(0),
+    createdAt: Date.now()
+  };
+
+  await Promise.all([
+    putRecordInIndexedDb(record),
+    projectId
+      ? saveClipBytesToLocalDisk(projectId, diskHash, mp3Bytes.slice(0))
+      : Promise.resolve(false)
+  ]);
+}
+
+/**
+ * Cuenta cuántos textos de una lista ya existen en caché local (IndexedDB o disco físico)
+ * para mostrar al instante cuántos clips costarán 0 créditos de ElevenLabs.
  */
 export async function countCachedSegmentsForConfig(
   texts: string[],
   voiceId: string,
-  modelId: string
+  modelId: string,
+  projectId?: string
 ): Promise<{ cachedCount: number; uncachedCharacters: number }> {
   if (texts.length === 0) {
     return { cachedCount: 0, uncachedCharacters: 0 };
   }
 
+  const foundFlags = new Array<boolean>(texts.length).fill(false);
+
+  // 1. Comprobar IndexedDB en una sola transacción
   try {
     const db = await openClipCacheDb();
     const keys = texts.map((t) => buildTtsClipCacheKey(voiceId, modelId, t));
-    const foundFlags = await new Promise<boolean[]>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(CACHE_STORE_NAME, 'readonly');
       const store = tx.objectStore(CACHE_STORE_NAME);
-      const flags = new Array<boolean>(keys.length).fill(false);
-
       for (let i = 0; i < keys.length; i++) {
         const req = store.count(keys[i]);
         req.onsuccess = () => {
-          flags[i] = (req.result || 0) > 0;
+          if ((req.result || 0) > 0) foundFlags[i] = true;
         };
       }
-      tx.oncomplete = () => resolve(flags);
+      tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
     db.close();
+  } catch {
+    // Continuar con disco físico
+  }
 
-    let cachedCount = 0;
-    let uncachedCharacters = 0;
-    for (let i = 0; i < texts.length; i++) {
-      if (foundFlags[i]) {
-        cachedCount++;
-      } else {
-        uncachedCharacters += texts[i].length;
+  // 2. Comprobar disco físico en un solo request rápido
+  if (projectId) {
+    const diskHashes = texts.map((t) => buildTtsClipDiskFileHash(voiceId, modelId, t));
+    const diskPresence = await checkClipsPresentOnLocalDisk(projectId, diskHashes);
+    if (diskPresence) {
+      for (let i = 0; i < texts.length; i++) {
+        if (diskPresence[i]) foundFlags[i] = true;
       }
     }
-    return { cachedCount, uncachedCharacters };
-  } catch {
-    return {
-      cachedCount: 0,
-      uncachedCharacters: texts.reduce((acc, t) => acc + t.length, 0)
-    };
   }
+
+  let cachedCount = 0;
+  let uncachedCharacters = 0;
+  for (let i = 0; i < texts.length; i++) {
+    if (foundFlags[i]) {
+      cachedCount++;
+    } else {
+      uncachedCharacters += texts[i].length;
+    }
+  }
+
+  return { cachedCount, uncachedCharacters };
 }

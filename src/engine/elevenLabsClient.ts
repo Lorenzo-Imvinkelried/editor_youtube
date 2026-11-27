@@ -133,12 +133,13 @@ export async function synthesizeElevenLabsSegment(
   text: string,
   config: ElevenLabsConfig,
   decodeCtx: BaseAudioContext,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  projectId?: string
 ): Promise<SynthesizedClip> {
   const cleanVoice = config.voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID;
 
-  // 1. Revisar caché local primero (0 tokens gastados si esta frase ya se generó con esta voz/modelo)
-  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, config.modelId, text);
+  // 1. Revisar caché local (IndexedDB + disco físico) primero: 0 tokens si ya se narró
+  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, config.modelId, text, projectId);
   if (cachedBytes) {
     try {
       const decoded = await decodeCtx.decodeAudioData(cachedBytes);
@@ -244,7 +245,7 @@ export async function synthesizeElevenLabsSegment(
   const mp3Bytes = await response.arrayBuffer();
   // Clonar ANTES de decodeAudioData (Web Audio desconecta el ArrayBuffer original al decodificar)
   const bytesForCache = mp3Bytes.slice(0);
-  await saveCachedTtsClipBytes(cleanVoice, config.modelId, text, bytesForCache);
+  await saveCachedTtsClipBytes(cleanVoice, config.modelId, text, bytesForCache, projectId);
 
   const decoded = await decodeCtx.decodeAudioData(mp3Bytes);
   const analyzed = analyzeAndTrimSpeechBuffer(decoded);

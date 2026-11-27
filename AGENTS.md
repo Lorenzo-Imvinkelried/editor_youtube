@@ -55,7 +55,8 @@ EDITOR/
     │   ├── imageCache.ts                # Carga asíncrona y caché CORS-safe de imágenes externas
     │   ├── internetImageSearch.ts       # Búsqueda de imágenes en Wikipedia/Wikimedia y proxy CORS
     │   ├── audioController.ts           # Sincronización multipista (voz + música) con el reloj del timeline
-    │   ├── audioPersistenceStore.ts     # Persistencia local en IndexedDB para conservar voz y música tras F5
+    │   ├── localDiskAudioVault.ts       # Cliente HTTP local para guardar/restaurar WAV y clips MP3 en disco
+    │   ├── audioPersistenceStore.ts     # Persistencia doble (disco físico + IndexedDB) para sobrevivir reinicios
     │   ├── musicLoopBuilder.ts          # Motor DSP de bucle instrumental inteligente (trim, crossfade, fades)
     │   ├── youtubeFrameOverlay.ts       # Simulador de pantalla YouTube 16:9 y Shorts 9:16 con HUD
     │   ├── narrationExtractor.ts        # Extrae guion por escena y re-sincroniza tiempos a la voz real

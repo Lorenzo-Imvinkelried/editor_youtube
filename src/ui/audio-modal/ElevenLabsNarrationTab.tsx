@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   Download,
+  HardDrive,
   KeyRound,
   Loader2,
   Mic,
@@ -17,6 +18,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { DslAudioTrack, DslScene } from '../../dsl/dslTypes';
+import { persistAudioFromUrl } from '../../engine/audioPersistenceStore';
 import {
   assembleMasterNarrationWav,
   decodeExistingVoiceTrack,
@@ -141,6 +143,7 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
   const [generatedWavUrl, setGeneratedWavUrl] = useState<string | null>(null);
   const [pendingScene, setPendingScene] = useState<DslScene | undefined>(undefined);
   const [auditSummary, setAuditSummary] = useState<AssemblyAuditSummary | null>(null);
+  const [savedDiskPath, setSavedDiskPath] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -177,13 +180,13 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           : []
         : activeSegments.map((s) => s.text);
 
-    countCachedSegmentsForConfig(texts, effectiveVoiceId, modelId).then((res) => {
+    countCachedSegmentsForConfig(texts, effectiveVoiceId, modelId, projectId).then((res) => {
       if (!cancelled) setCachedStats(res);
     });
     return () => {
       cancelled = true;
     };
-  }, [scope, customScript, activeSegments, effectiveVoiceId, modelId]);
+  }, [scope, customScript, activeSegments, effectiveVoiceId, modelId, projectId]);
 
   const totalCharacters = useMemo(() => {
     if (scope === 'custom-script') return customScript.trim().length;
@@ -299,6 +302,19 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
         ? `¡${clips.length} escenas narradas y sincronizadas sin solapamientos!`
         : `¡${clips.length} escenas ensambladas sin cruces de voz!`
     );
+
+    // Respaldo automático inmediato en disco físico + IndexedDB (sobrevive cierres o reinicios)
+    const shouldAutoPersistMaster =
+      scope === 'full-video' || !hasExistingVoice || mode !== 'standalone';
+    if (shouldAutoPersistMaster) {
+      const presetObj = FREE_TIER_PREMADE_VOICES.find((v) => v.id === effectiveVoiceId);
+      const trackLabel = `Voz ElevenLabs (${presetObj ? presetObj.name : effectiveVoiceId.slice(0, 8)})`;
+      void persistAudioFromUrl(projectId, 'voice', assembled.wavUrl, trackLabel).then((outcome) => {
+        if (outcome.savedToDisk && outcome.diskPath) {
+          setSavedDiskPath(outcome.diskPath);
+        }
+      });
+    }
   };
 
   const handleGenerate = async () => {
@@ -329,7 +345,8 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
           text,
           config,
           audioCtx,
-          controller.signal
+          controller.signal,
+          projectId
         );
         const assembled = assembleMasterNarrationWav(
           [clip],
@@ -341,6 +358,13 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
         lastRunRef.current = null;
         setGeneratedWavUrl(assembled.wavUrl);
         setPendingScene(undefined);
+        void persistAudioFromUrl(projectId, 'voice', assembled.wavUrl, 'Voz ElevenLabs (Guión)').then(
+          (outcome) => {
+            if (outcome.savedToDisk && outcome.diskPath) {
+              setSavedDiskPath(outcome.diskPath);
+            }
+          }
+        );
         setAuditSummary({
           overlapCount: assembled.overlapCount,
           pushedClipsCount: assembled.pushedClipsCount,
@@ -373,7 +397,8 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
             activeSegments[i].text,
             config,
             audioCtx,
-            controller.signal
+            controller.signal,
+            projectId
           );
           if (clip.fromCache) fromCacheCount++;
           clips.push(clip);
@@ -678,6 +703,12 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
               <span>Duración: {formatMinutesSeconds(auditSummary.totalDurationSeconds)}</span>
               {auditSummary.fromCacheCount > 0 && (
                 <span>⚡ {auditSummary.fromCacheCount}/{auditSummary.totalClips} desde caché (0 créditos)</span>
+              )}
+              {savedDiskPath && (
+                <span style={{ color: '#7dd3fc' }}>
+                  <HardDrive size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+                  Guardado en disco: <code>{savedDiskPath}</code>
+                </span>
               )}
             </div>
           )}
