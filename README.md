@@ -137,7 +137,8 @@ El repositorio incluye proyectos de ejemplo aislados en `projects/`:
 
 | Proyecto | Duración | Descripción |
 | --- | --- | --- |
-| `projects/beneficios-te-verde-frio-10m/` | 10 min (600s) | Video para **Juana La Sana** en estilo cuaderno botánico (10 capítulos y 80 escenas sobre té verde *cold brew*). |
+| `projects/repollo-con-lentejas-10m/` | 10:15 (615s) | Video #2 para **Juana La Sana** en estilo cuaderno botánico (intro + 10 capítulos, 82 escenas, 100% fotos reales verificadas, cero SVGs) sobre la sinergia entre repollo/col y lentejas. |
+| `projects/beneficios-te-verde-frio-10m/` | 10:15 (615s) | Video #1 para **Juana La Sana** en estilo cuaderno botánico (intro + 10 capítulos y 82 escenas sobre té verde *cold brew*). |
 | `projects/historia-nikola-tesla-10m/` | 10 min (600s) | Documental completo en 10 capítulos y 80 escenas con imágenes históricas buscadas automáticamente. |
 | `projects/explicacion-ia-cerebro/` | 10s | Video explicativo estilo Kurzgesagt/Vox sobre redes neuronales en canvas 2.5D. |
 | `projects/lanzamiento-startup-fintech/` | 8s | Reel dinámico con recorridos rápidos de cámara, métricas y animaciones pop-up. |

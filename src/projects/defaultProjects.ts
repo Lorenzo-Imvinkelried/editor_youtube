@@ -4,6 +4,9 @@
  */
 
 import { VideoProjectBundle, ProjectChatMessage, ProjectManifest } from './projectTypes';
+import repolloManifest from '../../projects/repollo-con-lentejas-10m/project.manifest.json';
+import repolloScene from '../../projects/repollo-con-lentejas-10m/scene.dsl.json';
+import repolloChat from '../../projects/repollo-con-lentejas-10m/chat.history.json';
 import teVerdeManifest from '../../projects/beneficios-te-verde-frio-10m/project.manifest.json';
 import teVerdeScene from '../../projects/beneficios-te-verde-frio-10m/scene.dsl.json';
 import teVerdeChat from '../../projects/beneficios-te-verde-frio-10m/chat.history.json';
@@ -19,6 +22,13 @@ import fintechChat from '../../projects/lanzamiento-startup-fintech/chat.history
 import { DslScene } from '../dsl/dslTypes';
 
 export const SEED_PROJECTS: VideoProjectBundle[] = [
+  {
+    directoryPath: 'projects/repollo-con-lentejas-10m/',
+    manifest: repolloManifest as ProjectManifest,
+    scene: repolloScene as unknown as DslScene,
+    chatHistory: repolloChat as ProjectChatMessage[],
+    assets: []
+  },
   {
     directoryPath: 'projects/beneficios-te-verde-frio-10m/',
     manifest: teVerdeManifest as ProjectManifest,
