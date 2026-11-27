@@ -1,7 +1,8 @@
 /**
  * Responsabilidad Única: Extraer en orden cronológico los segmentos narrativos (locución)
- * de cualquier escena `DslScene` y opcionalmente re-sincronizar los tiempos del video
- * (`cameraTrack`, `timeline` y `typewriter`) a la duración hablada real de cada frase.
+ * de cualquier escena `DslScene` y re-sincronizar matemáticamente los tiempos del video
+ * (`cameraTrack`, `timeline`, `chapters` y `typewriter`) a la duración hablada real de cada frase,
+ * garantizando que la siguiente escena y voz jamás arranquen antes de terminar la anterior.
  */
 
 import { DslCanvasNode, DslScene } from '../dsl/dslTypes';
@@ -16,6 +17,43 @@ export interface SceneNarrationSegment {
   sceneTitle?: string;
 }
 
+export interface RetimedSceneWindow {
+  segmentIndex: number;
+  oldStart: number;
+  oldEnd: number;
+  newStart: number;
+  newEnd: number;
+  audioStart: number;
+  audioEnd: number;
+  spokenDur: number;
+  subtitleNodeId?: string;
+}
+
+export interface PreservedAudioSlice {
+  srcStart: number;
+  srcEnd: number;
+  dstStart: number;
+}
+
+export interface RetimedNarrationResult {
+  updatedScene: DslScene;
+  audioStartOffsets: number[];
+  retimedWindows: RetimedSceneWindow[];
+  totalDuration: number;
+}
+
+const LEAD_IN_SECONDS = 0.35;
+const MIN_PAUSE_SECONDS = 0.25;
+const BOUNDARY_TOLERANCE = 0.015;
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
 /**
  * Extrae una frase de locución por cada toma de cámara (o por cada nodo de texto si no hay tomas),
  * priorizando las fichas narrativas (`editorial-paper`, `pill-badge` o nodos con acción `typewriter`).
@@ -24,7 +62,6 @@ export function extractSceneNarrationSegments(scene: DslScene): SceneNarrationSe
   const nodeMap = new Map<string, DslCanvasNode>(scene.nodes.map((n) => [n.id, n]));
   const sortedCamera = [...scene.cameraTrack].sort((a, b) => a.at - b.at);
 
-  // Mapa del primer instante de entrada de cada nodo en el timeline
   const firstActionAt = new Map<string, number>();
   const hasTypewriter = new Set<string>();
   for (const act of scene.timeline) {
@@ -62,7 +99,6 @@ export function extractSceneNarrationSegments(scene: DslScene): SceneNarrationSe
 
   for (let i = 0; i < sortedCamera.length; i++) {
     const kf = sortedCamera[i];
-    // Omitir tomas panorámicas mudas de cierre si duran pocos segundos sin nodos nuevos
     const windowStart = kf.at;
     const windowEnd = i + 1 < sortedCamera.length ? sortedCamera[i + 1].at : scene.duration;
 
@@ -75,7 +111,6 @@ export function extractSceneNarrationSegments(scene: DslScene): SceneNarrationSe
 
     if (candidates.length === 0) continue;
 
-    // Priorizar el subtítulo narrativo (ficha editorial / typewriter / frase más completa)
     const best = pickBestNarrationNode(candidates, hasTypewriter, nodeMap);
     for (const c of candidates) usedNodeIds.add(c.id);
 
@@ -125,103 +160,124 @@ function cleanSpokenText(raw: string): string {
     .trim();
 }
 
-export interface RetimedNarrationResult {
-  updatedScene: DslScene;
-  audioStartOffsets: number[];
-  totalDuration: number;
-}
-
 /**
- * Re-sincroniza los tiempos de las escenas narradas para que cada toma dure exactamente
- * lo que tarda la voz de ElevenLabs en pronunciar su texto (+ una pausa natural de respiración),
- * ajustando además la velocidad del `typewriter` a la voz real.
+ * Re-sincroniza los tiempos de las escenas narradas para que cada toma dure EXACTAMENTE
+ * lo que tarda la voz real en pronunciar su texto (+ pausa natural de respiración) sin
+ * acumulación de errores de redondeo ni posibilidad de que una escena o voz pise a la siguiente.
  */
 export function retimeSceneToSpokenDurations(
   scene: DslScene,
   narratedSegments: SceneNarrationSegment[],
   spokenDurations: number[],
-  pauseSeconds = 0.45
+  pauseSeconds = 0.5
 ): RetimedNarrationResult {
   const cloned: DslScene = JSON.parse(JSON.stringify(scene)) as DslScene;
   if (narratedSegments.length === 0 || spokenDurations.length === 0) {
     return {
       updatedScene: cloned,
       audioStartOffsets: [],
+      retimedWindows: [],
       totalDuration: cloned.duration
     };
   }
 
-  const leadInSeconds = 0.35; // Pequeña entrada visual antes de que empiece la voz
-  const windows: Array<{
-    oldStart: number;
-    oldEnd: number;
-    newStart: number;
-    newEnd: number;
-    spokenDur: number;
-    subtitleNodeId?: string;
-  }> = [];
-
-  let cursor = narratedSegments[0].startAt;
-  let prevOldEnd = narratedSegments[0].startAt;
+  const safePause = Math.max(MIN_PAUSE_SECONDS, pauseSeconds);
+  const windows: RetimedSceneWindow[] = [];
   const audioStartOffsets: number[] = [];
+
+  let cursor = round2(Math.max(0, narratedSegments[0].startAt));
+  let prevOldEnd = narratedSegments[0].startAt;
 
   for (let i = 0; i < narratedSegments.length; i++) {
     const seg = narratedSegments[i];
-    if (seg.startAt > prevOldEnd + 0.05) {
-      cursor += seg.startAt - prevOldEnd;
+    if (i > 0 && seg.startAt > prevOldEnd + 0.05) {
+      cursor = round2(cursor + (seg.startAt - prevOldEnd));
     }
 
-    const voiceDur = Math.max(0.8, spokenDurations[i] ?? 3);
+    const voiceDur = Math.max(0.4, spokenDurations[i] ?? 2.5);
     const oldSpan = Math.max(0.5, seg.endAt - seg.startAt);
-    const newSpan = Math.max(2.6, leadInSeconds + voiceDur + pauseSeconds);
+    const newStart = round2(cursor);
+    const audioStart = round2(newStart + LEAD_IN_SECONDS);
+    const audioEnd = round3(audioStart + voiceDur);
 
-    const newStart = Number(cursor.toFixed(2));
-    const newEnd = Number((cursor + newSpan).toFixed(2));
-    audioStartOffsets.push(Number((newStart + leadInSeconds).toFixed(2)));
+    // Redondeo siempre HACIA ARRIBA para que el fin de escena jamás acorte la voz ni la pausa
+    const minSceneEnd = Math.ceil((audioEnd + safePause) * 100) / 100;
+    const newEnd = Math.max(round2(newStart + 2.4), minSceneEnd);
 
+    audioStartOffsets.push(audioStart);
     windows.push({
+      segmentIndex: seg.index,
       oldStart: seg.startAt,
       oldEnd: seg.startAt + oldSpan,
       newStart,
       newEnd,
+      audioStart,
+      audioEnd,
       spokenDur: voiceDur,
       subtitleNodeId: seg.subtitleNodeId
     });
 
-    cursor += newSpan;
+    cursor = newEnd;
     prevOldEnd = seg.startAt + oldSpan;
   }
 
-  const lastOldEnd = windows[windows.length - 1].oldEnd;
-  const tailShift = cursor - lastOldEnd;
+  const lastWindow = windows[windows.length - 1];
+  const lastOldEnd = lastWindow.oldEnd;
+  const tailShift = round2(lastWindow.newEnd - lastOldEnd);
+
+  const findWindowForTime = (oldT: number): RetimedSceneWindow | undefined => {
+    for (let idx = 0; idx < windows.length; idx++) {
+      const w = windows[idx];
+      const lowerTol = idx === 0 ? 0.05 : BOUNDARY_TOLERANCE;
+      if (oldT >= w.oldStart - lowerTol && oldT < w.oldEnd - BOUNDARY_TOLERANCE) {
+        return w;
+      }
+    }
+    return undefined;
+  };
 
   const mapTimestamp = (oldT: number): number => {
     for (let idx = 0; idx < windows.length; idx++) {
       const w = windows[idx];
-      if (oldT >= w.oldStart - 0.05 && oldT < w.oldEnd - 0.02) {
+      const lowerTol = idx === 0 ? 0.05 : BOUNDARY_TOLERANCE;
+      if (oldT >= w.oldStart - lowerTol && oldT < w.oldEnd - BOUNDARY_TOLERANCE) {
         const localOffset = Math.max(0, oldT - w.oldStart);
         const ratio = (w.newEnd - w.newStart) / Math.max(0.2, w.oldEnd - w.oldStart);
-        // Las animaciones de entrada (<1s) conservan su agilidad; las posteriores escalan
         const mappedOffset = localOffset <= 0.8 ? localOffset : localOffset * ratio;
-        return Number(Math.min(w.newEnd - 0.1, w.newStart + mappedOffset).toFixed(2));
+        return round2(Math.min(w.newEnd - 0.1, w.newStart + mappedOffset));
       }
-      // Si el instante cae en un tramo intermedio NO seleccionado entre dos ventanas, conservar el desplazamiento acumulado
       const nextW = windows[idx + 1];
-      if (nextW && oldT >= w.oldEnd - 0.02 && oldT < nextW.oldStart - 0.05) {
+      if (nextW && oldT >= w.oldEnd - BOUNDARY_TOLERANCE && oldT < nextW.oldStart - BOUNDARY_TOLERANCE) {
         const shiftHere = w.newEnd - w.oldEnd;
-        return Number(Math.max(0, oldT + shiftHere).toFixed(2));
+        return round2(Math.max(0, oldT + shiftHere));
       }
     }
-    if (oldT >= lastOldEnd - 0.02) {
-      return Number(Math.max(0, oldT + tailShift).toFixed(2));
+    if (oldT >= lastOldEnd - BOUNDARY_TOLERANCE) {
+      return round2(Math.max(0, oldT + tailShift));
     }
-    return oldT;
+    return round2(oldT);
   };
 
-  cloned.cameraTrack = cloned.cameraTrack.map((kf) => ({
+  const mappedCamera = cloned.cameraTrack.map((kf) => ({
     ...kf,
     at: mapTimestamp(kf.at)
   }));
+
+  const newTotalDuration = Math.max(
+    Math.ceil(cursor + 0.5),
+    round2(cloned.duration + tailShift)
+  );
+
+  // Asegurar que la transición de cámara de cada toma nunca invada la siguiente escena
+  cloned.cameraTrack = mappedCamera.map((kf, idx) => {
+    const nextAt = idx + 1 < mappedCamera.length ? mappedCamera[idx + 1].at : newTotalDuration;
+    const slot = Math.max(0.5, nextAt - kf.at);
+    const safeDuration = round2(Math.min(kf.duration, Math.max(0.35, slot * 0.45)));
+    return {
+      ...kf,
+      duration: safeDuration
+    };
+  });
 
   if (cloned.chapters && cloned.chapters.length > 0) {
     cloned.chapters = cloned.chapters.map((ch) => ({
@@ -230,33 +286,39 @@ export function retimeSceneToSpokenDurations(
     }));
   }
 
-  cloned.timeline = cloned.timeline.map((act) => {
-    const newAt = mapTimestamp(act.at);
-    const matchedWindow = windows.find(
-      (w) => act.at >= w.oldStart - 0.05 && act.at < w.oldEnd - 0.02
-    );
+  const windowBySubtitleId = new Map<string, RetimedSceneWindow>();
+  for (const w of windows) {
+    if (w.subtitleNodeId) windowBySubtitleId.set(w.subtitleNodeId, w);
+  }
 
-    if (matchedWindow) {
-      if (act.action === 'typewriter' && act.targetId === matchedWindow.subtitleNodeId) {
+  cloned.timeline = cloned.timeline.map((act) => {
+    if (act.action === 'typewriter') {
+      const exactWindow = windowBySubtitleId.get(act.targetId);
+      if (exactWindow) {
         return {
           ...act,
-          at: Number((matchedWindow.newStart + leadInSeconds).toFixed(2)),
-          duration: Number(matchedWindow.spokenDur.toFixed(2))
+          at: exactWindow.audioStart,
+          duration: round2(exactWindow.spokenDur)
         };
       }
-      if (
-        act.action === 'float' ||
+    }
+
+    const newAt = mapTimestamp(act.at);
+    const matchedWindow = findWindowForTime(act.at);
+
+    if (
+      matchedWindow &&
+      (act.action === 'float' ||
         act.action === 'orbit' ||
         act.action === 'pendulum' ||
-        act.action === 'pulse'
-      ) {
-        const remaining = Math.max(1, matchedWindow.newEnd - newAt - 0.1);
-        return {
-          ...act,
-          at: newAt,
-          duration: Number(remaining.toFixed(2))
-        };
-      }
+        act.action === 'pulse')
+    ) {
+      const remaining = Math.max(1, matchedWindow.newEnd - newAt - 0.1);
+      return {
+        ...act,
+        at: newAt,
+        duration: round2(remaining)
+      };
     }
 
     return {
@@ -265,15 +327,63 @@ export function retimeSceneToSpokenDurations(
     };
   });
 
-  const newTotalDuration = Math.max(
-    Math.ceil(cursor + 0.5),
-    Number((cloned.duration + tailShift).toFixed(1))
-  );
   cloned.duration = newTotalDuration;
 
   return {
     updatedScene: cloned,
     audioStartOffsets,
+    retimedWindows: windows,
     totalDuration: newTotalDuration
   };
+}
+
+/**
+ * Calcula los tramos exactos de una pista de voz existente que NO fueron reemplazados
+ * y su nueva posición de destino cuando se re-sincronizó un subconjunto de escenas,
+ * evitando desincronización o solapamiento con el resto del video ya narrado.
+ */
+export function buildPreservedExistingAudioSlices(
+  existingDurationSeconds: number,
+  retimedWindows: RetimedSceneWindow[]
+): PreservedAudioSlice[] {
+  if (existingDurationSeconds <= 0.05 || retimedWindows.length === 0) {
+    return [];
+  }
+
+  const sorted = [...retimedWindows].sort((a, b) => a.oldStart - b.oldStart);
+  const slices: PreservedAudioSlice[] = [];
+
+  // Tramo previo a la primera escena regenerada
+  if (sorted[0].oldStart > 0.05) {
+    slices.push({
+      srcStart: 0,
+      srcEnd: Math.min(existingDurationSeconds, sorted[0].oldStart),
+      dstStart: 0
+    });
+  }
+
+  // Tramos intermedios entre escenas regeneradas no contiguas
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const curr = sorted[i];
+    const next = sorted[i + 1];
+    if (next.oldStart > curr.oldEnd + 0.05 && curr.oldEnd < existingDurationSeconds) {
+      slices.push({
+        srcStart: curr.oldEnd,
+        srcEnd: Math.min(existingDurationSeconds, next.oldStart),
+        dstStart: curr.newEnd
+      });
+    }
+  }
+
+  // Tramo posterior a la última escena regenerada
+  const last = sorted[sorted.length - 1];
+  if (last.oldEnd < existingDurationSeconds - 0.05) {
+    slices.push({
+      srcStart: last.oldEnd,
+      srcEnd: existingDurationSeconds,
+      dstStart: last.newEnd
+    });
+  }
+
+  return slices.filter((s) => s.srcEnd - s.srcStart > 0.04);
 }

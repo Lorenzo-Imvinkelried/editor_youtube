@@ -77,7 +77,7 @@ export const AudioManagerModal: React.FC<AudioManagerModalProps> = ({
       setAudioUrl(res.wavUrl);
       setAudioName(`Voz Unida (${stitchIntroFile.name} + ${stitchRestFile.name})`);
       setStitchMsg(
-        `¡Unidos! Intro (${res.firstDuration.toFixed(1)}s) + Resto desde ${stitchSecondOffset.toFixed(1)}s (${res.secondDuration.toFixed(1)}s). Guardá abajo y luego podés ir a ElevenLabs a reemplazar solo el nodo #3.`
+        `¡Unidos sin solapamiento! Intro (${res.firstDuration.toFixed(1)}s) + Resto desde ${res.effectiveSecondStart.toFixed(1)}s (${res.secondDuration.toFixed(1)}s). Guardá abajo para aplicarlo.`
       );
     } catch (err) {
       setStitchError(

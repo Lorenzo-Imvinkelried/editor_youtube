@@ -1,8 +1,24 @@
 /**
  * Responsabilidad Única: Conectar con la API oficial de ElevenLabs Text-to-Speech,
  * proveer el catálogo de voces oficiales `premade` (100% habilitadas en cuentas gratuitas por API),
- * decodificar cada clip de voz y ensamblar una pista maestra WAV de 44.1 kHz.
+ * consultar el caché local de clips para no desperdiciar tokens y devolver cada clip analizado.
  */
+
+import { getCachedTtsClipBytes, saveCachedTtsClipBytes } from './elevenLabsClipCache';
+import { SynthesizedClip } from './narrationWavAssembler';
+import { analyzeAndTrimSpeechBuffer } from './speechAudioAnalyzer';
+
+export {
+  assembleClipsIntoMasterWavUrl,
+  assembleMasterNarrationWav,
+  decodeExistingVoiceTrack,
+  stitchTwoVoiceFilesToMasterWavUrl
+} from './narrationWavAssembler';
+export type {
+  MasterWavAssemblyResult,
+  MasterWavMergeOptions,
+  SynthesizedClip
+} from './narrationWavAssembler';
 
 // George (premade oficial de ElevenLabs): habilitada gratis por API y de tono cálido documental
 export const DEFAULT_ELEVENLABS_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb';
@@ -49,11 +65,6 @@ export interface ElevenLabsConfig {
   apiKey: string;
   voiceId: string;
   modelId: ElevenLabsModelId;
-}
-
-export interface SynthesizedClip {
-  audioBuffer: AudioBuffer;
-  durationSeconds: number;
 }
 
 export function loadSavedElevenLabsConfig(): ElevenLabsConfig {
@@ -114,7 +125,9 @@ const KEY_ID_HELP_MESSAGE =
   'Pegaste el "API Key ID" (sin prefijo "sk_") en lugar de la clave secreta real. En ElevenLabs → Developers → API Keys tocá "Create API Key" (o el menú "..." → "Rotate" en tu clave actual) y copiá la clave secreta que empieza con "sk_..." apenas aparece.';
 
 /**
- * Sintetiza un fragmento de texto usando ElevenLabs y devuelve su `AudioBuffer` decodificado.
+ * Sintetiza (o recupera instantáneamente del caché local sin gastar créditos) un fragmento
+ * de texto usando ElevenLabs, analiza su forma de onda real para medir la duración hablada
+ * exacta sin silencios muertos y devuelve el clip listo para ensamblar sin solapamientos.
  */
 export async function synthesizeElevenLabsSegment(
   text: string,
@@ -122,9 +135,28 @@ export async function synthesizeElevenLabsSegment(
   decodeCtx: BaseAudioContext,
   abortSignal?: AbortSignal
 ): Promise<SynthesizedClip> {
-  const cleanKey = config.apiKey.trim();
   const cleanVoice = config.voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID;
 
+  // 1. Revisar caché local primero (0 tokens gastados si esta frase ya se generó con esta voz/modelo)
+  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, config.modelId, text);
+  if (cachedBytes) {
+    try {
+      const decoded = await decodeCtx.decodeAudioData(cachedBytes);
+      const analyzed = analyzeAndTrimSpeechBuffer(decoded);
+      return {
+        audioBuffer: decoded,
+        durationSeconds: analyzed.spokenDurationSeconds,
+        rawDurationSeconds: decoded.duration,
+        trimmedPcm: analyzed.pcm,
+        trimmedSampleRate: analyzed.sampleRate,
+        fromCache: true
+      };
+    } catch {
+      // Si el registro cacheado estuviera corrupto, continuar a síntesis normal
+    }
+  }
+
+  const cleanKey = config.apiKey.trim();
   if (!cleanKey) {
     throw new Error('Ingresá tu API Key secreta de ElevenLabs (empieza con sk_...) para generar la voz.');
   }
@@ -210,218 +242,19 @@ export async function synthesizeElevenLabsSegment(
   }
 
   const mp3Bytes = await response.arrayBuffer();
+  // Clonar ANTES de decodeAudioData (Web Audio desconecta el ArrayBuffer original al decodificar)
+  const bytesForCache = mp3Bytes.slice(0);
+  await saveCachedTtsClipBytes(cleanVoice, config.modelId, text, bytesForCache);
+
   const decoded = await decodeCtx.decodeAudioData(mp3Bytes);
+  const analyzed = analyzeAndTrimSpeechBuffer(decoded);
+
   return {
     audioBuffer: decoded,
-    durationSeconds: decoded.duration
+    durationSeconds: analyzed.spokenDurationSeconds,
+    rawDurationSeconds: decoded.duration,
+    trimmedPcm: analyzed.pcm,
+    trimmedSampleRate: analyzed.sampleRate,
+    fromCache: false
   };
-}
-
-export interface MasterWavMergeOptions {
-  /** AudioBuffer de la pista de voz ya cargada en el proyecto */
-  existingVoiceBuffer: AudioBuffer;
-  /**
-   * 'prepend-shift': desplaza la voz existente hacia adelante e inserta la intro nueva antes.
-   * 'replace-ranges': mantiene la voz existente intacta fuera de las escenas regeneradas.
-   */
-  mode: 'prepend-shift' | 'replace-ranges';
-  /** Desplazamiento en segundos para 'prepend-shift' */
-  shiftExistingBySeconds?: number;
-  /** Ventanas a silenciar de la voz anterior antes de insertar los clips nuevos ('replace-ranges') */
-  replacedRanges?: Array<{ start: number; end: number }>;
-}
-
-/**
- * Decodifica una pista de voz existente (Blob URL, Data URL o link) para poder combinarla
- * con clips recién generados sin volver a gastar créditos en el resto del video.
- */
-export async function decodeExistingVoiceTrack(
-  audioUrl: string,
-  decodeCtx: BaseAudioContext
-): Promise<AudioBuffer | null> {
-  try {
-    const response = await fetch(audioUrl);
-    if (!response.ok) return null;
-    const bytes = await response.arrayBuffer();
-    return await decodeCtx.decodeAudioData(bytes);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Une múltiples clips de voz decodificados en sus instantes exactos (`startOffsets`)
- * dentro de un archivo WAV PCM 16-bit de 44.1 kHz, con soporte opcional para anteponer
- * o parchar sobre una pista de voz existente sin regenerar el video completo.
- */
-export function assembleClipsIntoMasterWavUrl(
-  clips: SynthesizedClip[],
-  startOffsets: number[],
-  totalDurationSeconds: number,
-  mergeOptions?: MasterWavMergeOptions
-): string {
-  const sampleRate = 44100;
-  let maxRequiredSeconds = totalDurationSeconds;
-
-  for (let i = 0; i < clips.length; i++) {
-    const end = (startOffsets[i] ?? 0) + clips[i].durationSeconds + 0.2;
-    if (end > maxRequiredSeconds) maxRequiredSeconds = end;
-  }
-
-  if (mergeOptions?.existingVoiceBuffer) {
-    const shiftSec =
-      mergeOptions.mode === 'prepend-shift'
-        ? Math.max(0, mergeOptions.shiftExistingBySeconds ?? 0)
-        : 0;
-    const existingEnd = shiftSec + mergeOptions.existingVoiceBuffer.duration + 0.2;
-    if (existingEnd > maxRequiredSeconds) maxRequiredSeconds = existingEnd;
-  }
-
-  const totalSamples = Math.max(sampleRate, Math.ceil(maxRequiredSeconds * sampleRate));
-  const mixedPcm = new Float32Array(totalSamples);
-
-  // 1. Volcar primero la pista de voz existente (si se solicitó combinar/anteponer)
-  if (mergeOptions?.existingVoiceBuffer) {
-    const baseBuf = mergeOptions.existingVoiceBuffer;
-    const shiftSec =
-      mergeOptions.mode === 'prepend-shift'
-        ? Math.max(0, mergeOptions.shiftExistingBySeconds ?? 0)
-        : 0;
-    const baseStartSample = Math.floor(shiftSec * sampleRate);
-    const ch0 = baseBuf.getChannelData(0);
-    const ch1 = baseBuf.numberOfChannels > 1 ? baseBuf.getChannelData(1) : null;
-    const ratio = baseBuf.sampleRate / sampleRate;
-    const outLen = Math.floor(baseBuf.length / ratio);
-    const ranges = mergeOptions.replacedRanges ?? [];
-    const rampSec = 0.035;
-
-    for (let s = 0; s < outLen; s++) {
-      const targetIdx = baseStartSample + s;
-      if (targetIdx >= totalSamples) break;
-      const targetTime = targetIdx / sampleRate;
-
-      let maskGain = 1;
-      for (const r of ranges) {
-        if (targetTime >= r.start && targetTime <= r.end) {
-          maskGain = 0;
-          break;
-        }
-        if (targetTime >= r.start - rampSec && targetTime < r.start) {
-          maskGain = Math.min(maskGain, (r.start - targetTime) / rampSec);
-        } else if (targetTime > r.end && targetTime <= r.end + rampSec) {
-          maskGain = Math.min(maskGain, (targetTime - r.end) / rampSec);
-        }
-      }
-      if (maskGain <= 0.0001) continue;
-
-      const srcPos = s * ratio;
-      const idx0 = Math.min(baseBuf.length - 1, Math.floor(srcPos));
-      const idx1 = Math.min(baseBuf.length - 1, idx0 + 1);
-      const frac = srcPos - idx0;
-      const v0 = ch1 ? (ch0[idx0] + ch1[idx0]) * 0.5 : ch0[idx0];
-      const v1 = ch1 ? (ch0[idx1] + ch1[idx1]) * 0.5 : ch0[idx1];
-      const val = v0 + (v1 - v0) * frac;
-      mixedPcm[targetIdx] = val * maskGain;
-    }
-  }
-
-  // 2. Superponer los clips recién generados en sus instantes exactos
-  for (let i = 0; i < clips.length; i++) {
-    const buf = clips[i].audioBuffer;
-    const offsetSec = Math.max(0, startOffsets[i] ?? 0);
-    const startSample = Math.floor(offsetSec * sampleRate);
-
-    const ch0 = buf.getChannelData(0);
-    const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
-    const ratio = buf.sampleRate / sampleRate;
-    const outLen = Math.floor(buf.length / ratio);
-
-    for (let s = 0; s < outLen; s++) {
-      const targetIdx = startSample + s;
-      if (targetIdx >= totalSamples) break;
-      const srcPos = s * ratio;
-      const idx0 = Math.min(buf.length - 1, Math.floor(srcPos));
-      const idx1 = Math.min(buf.length - 1, idx0 + 1);
-      const frac = srcPos - idx0;
-      const s0 = ch1 ? (ch0[idx0] + ch1[idx0]) * 0.5 : ch0[idx0];
-      const s1 = ch1 ? (ch0[idx1] + ch1[idx1]) * 0.5 : ch0[idx1];
-      const sampleVal = s0 + (s1 - s0) * frac;
-      mixedPcm[targetIdx] = Math.max(-1, Math.min(1, mixedPcm[targetIdx] + sampleVal));
-    }
-  }
-
-  return encodeFloat32ToWavBlobUrl(mixedPcm, sampleRate);
-}
-
-/**
- * Une dos archivos de voz locales (ej. Intro nueva + Audio viejo de 10 minutos) en un único
- * archivo WAV maestro de 44.1 kHz, colocando el segundo archivo exactamente en `secondStartAtSeconds`.
- */
-export async function stitchTwoVoiceFilesToMasterWavUrl(
-  firstFile: File,
-  secondFile: File,
-  secondStartAtSeconds: number,
-  totalDurationSeconds: number
-): Promise<{ wavUrl: string; firstDuration: number; secondDuration: number }> {
-  const AudioCtx =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new AudioCtx();
-  try {
-    const [b1, b2] = await Promise.all([
-      firstFile.arrayBuffer().then((ab) => ctx.decodeAudioData(ab)),
-      secondFile.arrayBuffer().then((ab) => ctx.decodeAudioData(ab))
-    ]);
-
-    const wavUrl = assembleClipsIntoMasterWavUrl(
-      [
-        { audioBuffer: b1, durationSeconds: b1.duration },
-        { audioBuffer: b2, durationSeconds: b2.duration }
-      ],
-      [0, Math.max(0, secondStartAtSeconds)],
-      Math.max(totalDurationSeconds, Math.max(0, secondStartAtSeconds) + b2.duration + 0.3)
-    );
-
-    return {
-      wavUrl,
-      firstDuration: b1.duration,
-      secondDuration: b2.duration
-    };
-  } finally {
-    ctx.close().catch(() => {});
-  }
-}
-
-function encodeFloat32ToWavBlobUrl(samples: Float32Array, sampleRate: number): string {
-  const numSamples = samples.length;
-  const buffer = new ArrayBuffer(44 + numSamples * 2);
-  const view = new DataView(buffer);
-
-  writeAscii(view, 0, 'RIFF');
-  view.setUint32(4, 36 + numSamples * 2, true);
-  writeAscii(view, 8, 'WAVE');
-  writeAscii(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(view, 36, 'data');
-  view.setUint32(40, numSamples * 2, true);
-
-  for (let i = 0; i < numSamples; i++) {
-    const clamped = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(44 + i * 2, clamped * 32767, true);
-  }
-
-  const blob = new Blob([buffer], { type: 'audio/wav' });
-  return URL.createObjectURL(blob);
-}
-
-function writeAscii(view: DataView, offset: number, text: string): void {
-  for (let i = 0; i < text.length; i++) {
-    view.setUint8(offset + i, text.charCodeAt(i));
-  }
 }
