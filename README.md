@@ -133,12 +133,10 @@ VITE_ELEVENLABS_API_KEY=sk_tu_clave_secreta
 
 ## Proyectos incluidos
 
-El repositorio incluye proyectos de ejemplo aislados en `projects/`:
+El repositorio incluye 3 proyectos demo públicos en `projects/` (todos los demás proyectos privados creados en `projects/<id>/` y cualquier video/audio exportado son descubiertos automáticamente en local por el editor pero ignorados en `.gitignore` para no subirse a GitHub):
 
 | Proyecto | Duración | Descripción |
 | --- | --- | --- |
-| `projects/repollo-con-lentejas-10m/` | 10:15 (615s) | Video #2 para **Juana La Sana** en estilo cuaderno botánico (intro + 10 capítulos, 82 escenas, 100% fotos reales verificadas, cero SVGs) sobre la sinergia entre repollo/col y lentejas. |
-| `projects/beneficios-te-verde-frio-10m/` | 10:15 (615s) | Video #1 para **Juana La Sana** en estilo cuaderno botánico (intro + 10 capítulos y 82 escenas sobre té verde *cold brew*). |
 | `projects/historia-nikola-tesla-10m/` | 10 min (600s) | Documental completo en 10 capítulos y 80 escenas con imágenes históricas buscadas automáticamente. |
 | `projects/explicacion-ia-cerebro/` | 10s | Video explicativo estilo Kurzgesagt/Vox sobre redes neuronales en canvas 2.5D. |
 | `projects/lanzamiento-startup-fintech/` | 8s | Reel dinámico con recorridos rápidos de cámara, métricas y animaciones pop-up. |

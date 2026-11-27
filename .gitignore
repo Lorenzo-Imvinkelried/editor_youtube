@@ -3,5 +3,23 @@ dist/
 .vite/
 *.local
 *.tsbuildinfo
-projects/*/exports/*.mp4
-projects/*/exports/*.webm
+
+# Proyectos de video privados/locales del canal (se descubren en local vía Vite, nunca se suben a GitHub)
+projects/*
+!projects/historia-nikola-tesla-10m/
+!projects/explicacion-ia-cerebro/
+!projects/lanzamiento-startup-fintech/
+
+# Videos exportados, renders y pistas de audio en cualquier carpeta del repositorio
+*.mp4
+*.webm
+*.mov
+*.mkv
+*.avi
+*.m4v
+*.wav
+*.mp3
+*.m4a
+*.ogg
+projects/*/exports/
+projects/*/assets/audio/

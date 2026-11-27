@@ -88,6 +88,11 @@ Antes de generar el `scene.dsl.json` de cualquier proyecto de video nuevo, el ag
 - Si desea incluir una **intro de presentación del canal/personaje** (ej. saludo, origen o sello personal del canal como *Juana La Sana*) o arrancar directo con el gancho del tema.
 - Qué orden y duración prefiere para los primeros segundos (ej. gancho del tema en `00:00–00:07` + presentación breve en `00:07–00:15`), asegurando que los nodos de intro usen prefijo `intro-*` y que el Capítulo 1 no repita el saludo.
 
+### Regla Obligatoria de Privacidad en Git (Videos y Proyectos Personales)
+- **NUNCA subir a GitHub** los proyectos de video privados del usuario (canal *Juana La Sana* u otros canales propios bajo `projects/<project-id>/`) ni archivos de video/audio (`*.mp4`, `*.webm`, `*.mov`, `*.wav`, `*.mp3`, `exports/`, `assets/audio/`).
+- `.gitignore` ignora por defecto todo `projects/*` salvo los 3 demos públicos del portfolio (`historia-nikola-tesla-10m`, `explicacion-ia-cerebro`, `lanzamiento-startup-fintech`).
+- `src/projects/defaultProjects.ts` descubre automáticamente cualquier proyecto presente en disco mediante `import.meta.glob`, por lo que al crear nuevos videos en `projects/<id>/` quedan disponibles al instante en local sin editar `src/` y sin riesgo de filtrarlos en GitHub. **Prohibido usar `git add -f`** sobre carpetas de proyectos privados.
+
 ### Regla Obligatoria de Recursos Visuales (Cero SVGs Personalizados)
 - **PROHIBIDO crear nodos `type: "svg"` o dibujar íconos/vectores personalizados** (como `brain`, `sparkles`, `chart`, `bolt`, `globe`, `star`, `rocket`, etc.).
 - **100% de los elementos visuales deben ser `type: "image"`** usando fotografías reales, láminas botánicas/históricas o ilustraciones de buena calidad obtenidas de fuentes externas confiables (ej. Wikimedia Commons / Wikipedia con URLs directas `wikimedia.org` verificadas con `HTTP 200` y CORS abierto).
