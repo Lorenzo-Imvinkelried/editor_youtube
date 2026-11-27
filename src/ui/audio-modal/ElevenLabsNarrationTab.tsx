@@ -41,6 +41,7 @@ import {
   retimeSceneToSpokenDurations,
   SceneNarrationSegment
 } from '../../engine/narrationExtractor';
+import { formatTextForNaturalSpanishTts } from '../../engine/ttsPronunciationFormatter';
 import { NarrationNodePicker } from './NarrationNodePicker';
 
 interface ElevenLabsNarrationTabProps {
@@ -176,9 +177,9 @@ export const ElevenLabsNarrationTab: React.FC<ElevenLabsNarrationTabProps> = ({
     const texts =
       scope === 'custom-script'
         ? customScript.trim()
-          ? [customScript.trim()]
+          ? [formatTextForNaturalSpanishTts(customScript.trim())]
           : []
-        : activeSegments.map((s) => s.text);
+        : activeSegments.map((s) => formatTextForNaturalSpanishTts(s.text));
 
     countCachedSegmentsForConfig(texts, effectiveVoiceId, modelId, projectId).then((res) => {
       if (!cancelled) setCachedStats(res);

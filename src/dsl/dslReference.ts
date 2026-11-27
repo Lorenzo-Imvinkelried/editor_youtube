@@ -36,4 +36,5 @@ El editor utiliza un lenguaje declarativo JSON diseñado específicamente para s
    - \`popIn\`: Efecto Pop-Up con física de resorte (\`easing: "springBouncy"\`).
    - \`typewriter\`: Escritura progresiva letra por letra para nodos de texto.
    - \`float\`, \`wiggle\`, \`pulse\`, \`spin\`, \`moveTo\`, \`scaleTo\`.
+   - **Locución TTS clara:** las letras sueltas (como \`vitamina C\`, \`vitamina K\`, \`B12\`, \`D3\`) y siglas (\`LDL\`, \`HDL\`, \`ADN\`) deben ir bien puntuadas en el guion y el motor \`ttsPronunciationFormatter\` las pausa fonéticamente al narrar para que nunca se pronuncien apuradas.
 `.trim();

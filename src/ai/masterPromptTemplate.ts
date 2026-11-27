@@ -36,6 +36,7 @@ Usá colores de tinta clásica para la propiedad \`color\` de los nodos:
 - \`"editorial-paper"\`: Ficha de papel recortado color crema (ideal para subtítulos narrativos abajo).
 - \`"highlight-box"\`: Tira de papel ocre resaltada.
 - \`"3d-pop"\`: Titular de prensa antigua con doble filete inferior.
+- **Claridad para locución TTS (letras sueltas y siglas):** redactá los subtítulos narrativos con puntuación clara alrededor de letras solas o vitaminas (ej. \`"vitamina C,"\` / \`"vitamina K"\` / \`"colesterol LDL"\`); el motor de voz aplicará además pausas fonéticas automáticas (\`"vitamina, Ce,"\`) para que cada letra se escuche pausada y nítida.
 
 ### 4. LAYOUT INTELIGENTE ANTI-SOLAPAMIENTO (\`relativeTo\` + \`autoAvoidOverlap\`)
 - Poné \`"autoAvoidOverlap": true\` en la raíz de la escena para que el motor garantice separación real entre textos, cintas kraft y fotografías.

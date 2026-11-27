@@ -63,6 +63,7 @@ EDITOR/
     │   ├── speechAudioAnalyzer.ts       # Analiza PCM real, recorta silencios y blinda cero solapamientos
     │   ├── elevenLabsClipCache.ts       # Caché IndexedDB por frase/voz para no repetir gasto de tokens
     │   ├── narrationWavAssembler.ts     # Ensamblador WAV 44.1 kHz con barrera anti-solapamiento y parches
+    │   ├── ttsPronunciationFormatter.ts # Preprocesador fonético TTS para pausar letras sueltas (vitamina C, K, LDL)
     │   ├── freeNeuralTtsClient.ts       # Cliente TTS neuronal gratuito ilimitado (edge-tts local en D:)
     │   ├── elevenLabsClient.ts          # Cliente TTS de ElevenLabs y catálogo de voces premade gratis
     │   ├── mp4Exporter.ts               # Codificador determinista 60 FPS a MP4 con WebCodecs y audio
@@ -90,8 +91,12 @@ EDITOR/
 
 ## 4. Flujo Obligatorio al Crear Nuevos Proyectos de Video
 Antes de generar el `scene.dsl.json` de cualquier proyecto de video nuevo, el agente DEBE preguntar al usuario cómo quiere armar la **introducción** (además del tono, estética y variante de español):
-- Si desea incluir una **intro de presentación del canal/personaje** (ej. saludo, origen o sello personal del canal como *Juana La Sana*) o arrancar directo con el gancho del tema.
+- Si desea incluir una **intro de presentación del canal/personaje** (ej. *"Hola, soy Juana, nutrióloga, aunque aquí todos me llaman Juana La Sana..."* — **NO mencionar Nueva Zelanda ni acento extranjero**, ya que ahora el canal usa voces neuronales nativas en español) o arrancar directo con el gancho del tema.
 - Qué orden y duración prefiere para los primeros segundos (ej. gancho del tema en `00:00–00:07` + presentación breve en `00:07–00:15`), asegurando que los nodos de intro usen prefijo `intro-*` y que el Capítulo 1 no repita el saludo.
+
+### Regla Obligatoria de Locución Clara para Letras Sueltas y Siglas (TTS)
+- Al escribir guiones en español para cualquier video nuevo (y en el motor TTS automático `src/engine/ttsPronunciationFormatter.ts`), **NUNCA dejar letras solas pegadas sin respiro** donde el sintetizador las diga apuradas y confusas (por ejemplo `vitamina C` dicha como un "ce" inaudible de 140 ms, o `la K y la A`, `B9`, `B12`, `D3`, `colesterol LDL`).
+- En el texto visible del `scene.dsl.json`, conservar la ortografía editorial limpia (`vitamina C`, `vitamina K`, `colesterol LDL`) con buena puntuación natural; y el motor `formatTextForNaturalSpanishTts()` convierte automáticamente antes de sintetizar en `edge-tts` y `ElevenLabs` cada letra suelta a su pausa fonética clara (`vitamina C` → `vitamina, Ce,`, `vitamina K` → `vitamina, Ka,`, `como la K y la A` → `como la, Ka, y la, A`, `LDL` → `L, D, L`) para que se tome la pausa y se entienda nítidamente en todos los videos presentes y futuros.
 
 ### Regla Obligatoria de Privacidad en Git (Videos y Proyectos Personales)
 - **NUNCA subir a GitHub** los proyectos de video privados del usuario (canal *Juana La Sana* u otros canales propios bajo `projects/<project-id>/`) ni archivos de video/audio (`*.mp4`, `*.webm`, `*.mov`, `*.wav`, `*.mp3`, `exports/`, `assets/audio/`).

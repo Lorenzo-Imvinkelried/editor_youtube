@@ -7,6 +7,7 @@
 import { getCachedTtsClipBytes, saveCachedTtsClipBytes } from './elevenLabsClipCache';
 import { SynthesizedClip } from './narrationWavAssembler';
 import { analyzeAndTrimSpeechBuffer } from './speechAudioAnalyzer';
+import { formatTextForNaturalSpanishTts } from './ttsPronunciationFormatter';
 
 export interface FreeNeuralVoiceOption {
   id: string;
@@ -186,13 +187,14 @@ export async function checkFreeNeuralTtsStatus(): Promise<{ available: boolean; 
  */
 export async function generateFreeNeuralSampleUrl(
   config: FreeNeuralTtsConfig,
-  sampleText = 'Hola, soy Juana. Hoy vamos a ver ciencia clara y práctica para cuidar tu salud todos los días.'
+  sampleText = 'Hola, soy Juana, nutrióloga. Hoy vemos cómo la vitamina C y las lentejas cuidan tu salud todos los días.'
 ): Promise<string> {
+  const spokenSample = formatTextForNaturalSpanishTts(sampleText);
   const res = await fetch('/__local-tts/synthesize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      text: sampleText,
+      text: spokenSample,
       voice: config.voiceId,
       rate: config.rate,
       pitch: config.pitch
@@ -226,9 +228,10 @@ export async function synthesizeFreeNeuralSegment(
 ): Promise<SynthesizedClip> {
   const cleanVoice = config.voiceId.trim() || DEFAULT_FREE_NEURAL_VOICE_ID;
   const modelTag = buildFreeNeuralCacheModelTag(config);
+  const spokenText = formatTextForNaturalSpanishTts(text);
 
   // 1. Revisar caché local (IndexedDB + disco físico) primero
-  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, modelTag, text, projectId);
+  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, modelTag, spokenText, projectId);
   if (cachedBytes) {
     try {
       const decoded = await decodeCtx.decodeAudioData(cachedBytes);
@@ -250,7 +253,7 @@ export async function synthesizeFreeNeuralSegment(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      text,
+      text: spokenText,
       voice: cleanVoice,
       rate: config.rate,
       pitch: config.pitch
@@ -276,7 +279,7 @@ export async function synthesizeFreeNeuralSegment(
 
   // Clonar antes de decodeAudioData porque Web Audio desconecta el ArrayBuffer original
   const bytesForCache = mp3Bytes.slice(0);
-  await saveCachedTtsClipBytes(cleanVoice, modelTag, text, bytesForCache, projectId);
+  await saveCachedTtsClipBytes(cleanVoice, modelTag, spokenText, bytesForCache, projectId);
 
   const decoded = await decodeCtx.decodeAudioData(mp3Bytes);
   const analyzed = analyzeAndTrimSpeechBuffer(decoded);

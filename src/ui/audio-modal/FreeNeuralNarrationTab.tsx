@@ -34,6 +34,7 @@ import {
   retimeSceneToSpokenDurations,
   SceneNarrationSegment
 } from '../../engine/narrationExtractor';
+import { formatTextForNaturalSpanishTts } from '../../engine/ttsPronunciationFormatter';
 import {
   assembleMasterNarrationWav,
   decodeExistingVoiceTrack,
@@ -162,9 +163,9 @@ export const FreeNeuralNarrationTab: React.FC<FreeNeuralNarrationTabProps> = ({
     const texts =
       scope === 'custom-script'
         ? customScript.trim()
-          ? [customScript.trim()]
+          ? [formatTextForNaturalSpanishTts(customScript.trim())]
           : []
-        : activeSegments.map((s) => s.text);
+        : activeSegments.map((s) => formatTextForNaturalSpanishTts(s.text));
 
     countCachedSegmentsForConfig(texts, voiceId, cacheModelTag, projectId).then((res) => {
       if (!cancelled) setCachedStats(res);

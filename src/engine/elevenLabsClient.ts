@@ -7,6 +7,7 @@
 import { getCachedTtsClipBytes, saveCachedTtsClipBytes } from './elevenLabsClipCache';
 import { SynthesizedClip } from './narrationWavAssembler';
 import { analyzeAndTrimSpeechBuffer } from './speechAudioAnalyzer';
+import { formatTextForNaturalSpanishTts } from './ttsPronunciationFormatter';
 
 export {
   assembleClipsIntoMasterWavUrl,
@@ -137,9 +138,10 @@ export async function synthesizeElevenLabsSegment(
   projectId?: string
 ): Promise<SynthesizedClip> {
   const cleanVoice = config.voiceId.trim() || DEFAULT_ELEVENLABS_VOICE_ID;
+  const spokenText = formatTextForNaturalSpanishTts(text);
 
   // 1. Revisar caché local (IndexedDB + disco físico) primero: 0 tokens si ya se narró
-  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, config.modelId, text, projectId);
+  const cachedBytes = await getCachedTtsClipBytes(cleanVoice, config.modelId, spokenText, projectId);
   if (cachedBytes) {
     try {
       const decoded = await decodeCtx.decodeAudioData(cachedBytes);
@@ -177,7 +179,7 @@ export async function synthesizeElevenLabsSegment(
       Accept: 'audio/mpeg'
     },
     body: JSON.stringify({
-      text,
+      text: spokenText,
       model_id: config.modelId,
       voice_settings: {
         stability: 0.52,
@@ -245,7 +247,7 @@ export async function synthesizeElevenLabsSegment(
   const mp3Bytes = await response.arrayBuffer();
   // Clonar ANTES de decodeAudioData (Web Audio desconecta el ArrayBuffer original al decodificar)
   const bytesForCache = mp3Bytes.slice(0);
-  await saveCachedTtsClipBytes(cleanVoice, config.modelId, text, bytesForCache, projectId);
+  await saveCachedTtsClipBytes(cleanVoice, config.modelId, spokenText, bytesForCache, projectId);
 
   const decoded = await decodeCtx.decodeAudioData(mp3Bytes);
   const analyzed = analyzeAndTrimSpeechBuffer(decoded);
