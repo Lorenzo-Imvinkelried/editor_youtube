@@ -6,6 +6,7 @@ Este archivo sirve como mapa mental rápido para que cualquier IA comprenda de i
 ## 1. Reglas Obligatorias (`.agents/rules/`)
 - **[Convención de Git](./.agents/rules/git-commits.md)**: Todos los commits y pushes DEBEN escribirse en **español en modo IMPERATIVO** (`Agrega`, `Refacciona`, `Corrige`, `Actualiza`, `Elimina`) e incluir obligatoriamente un **body explicando el porqué** de la decisión.
 - **[Arquitectura y SRP](./.agents/rules/architecture.md)**: Cada archivo tiene **una única responsabilidad**. Está prohibido mezclar motor de renderizado, gramática del DSL, gestión de proyectos y componentes React en un mismo archivo.
+- **[Coherencia Visual Texto-Imagen](./.agents/rules/visual-coherence.md)**: Toda escena debe mostrar una fotografía real directamente relacionada con lo que se narra (cero relleno ni imágenes de laboratorio/químicas fuera de tema). Antes de entregar cualquier video, el agente DEBE correr `npm run audit:images -- projects/<id>/scene.dsl.json --sheets <dir>` e inspeccionar visualmente **todas las hojas de contacto** con `read_file`.
 
 ## 2. Stack Tecnológico Elegido y Justificación
 - **Lenguaje**: **TypeScript (Strict Mode)** — Garantiza contratos exactos entre el lenguaje interno (DSL) que genera la IA y el motor de animación.
@@ -103,7 +104,7 @@ Antes de generar el `scene.dsl.json` de cualquier proyecto de video nuevo, el ag
 - `.gitignore` ignora por defecto todo `projects/*` salvo los 3 demos públicos del portfolio (`historia-nikola-tesla-10m`, `explicacion-ia-cerebro`, `lanzamiento-startup-fintech`).
 - `src/projects/defaultProjects.ts` descubre automáticamente cualquier proyecto presente en disco mediante `import.meta.glob`, por lo que al crear nuevos videos en `projects/<id>/` quedan disponibles al instante en local sin editar `src/` y sin riesgo de filtrarlos en GitHub. **Prohibido usar `git add -f`** sobre carpetas de proyectos privados.
 
-### Regla Obligatoria de Recursos Visuales (Cero SVGs Personalizados)
+### Regla Obligatoria de Recursos Visuales (Cero SVGs Personalizados y Auditoría Visual Real)
 - **PROHIBIDO crear nodos `type: "svg"` o dibujar íconos/vectores personalizados** (como `brain`, `sparkles`, `chart`, `bolt`, `globe`, `star`, `rocket`, etc.).
 - **100% de los elementos visuales deben ser `type: "image"`** usando fotografías reales, láminas botánicas/históricas o ilustraciones de buena calidad obtenidas de fuentes externas confiables (ej. Wikimedia Commons / Wikipedia con URLs directas `wikimedia.org` verificadas con `HTTP 200` y CORS abierto).
-- **Coherencia temática estricta**: antes de escribir el `scene.dsl.json`, el agente debe verificar el título/archivo real de cada imagen para garantizar que tenga alta calidad visual y corresponda exactamente a lo que se está narrando en esa escena (nunca confiar a ciegas en búsquedas ambiguas que devuelven fotos fuera de tema).
+- **Coherencia temática estricta + inspección visual obligatoria (ver [`.agents/rules/visual-coherence.md`](./.agents/rules/visual-coherence.md))**: antes de dar por listo cualquier `scene.dsl.json`, el agente DEBE ejecutar `npm run audit:images -- projects/<id>/scene.dsl.json --sheets <carpeta-temporal>` y **mirar con visión (`read_file`) todas las hojas de contacto generadas** para confirmar con sus propios ojos que cada imagen corresponde exactamente a la frase hablada (reemplazando cualquier foto de relleno, química/metálica, distorsionada o fuera de tema y volviendo a auditar).
